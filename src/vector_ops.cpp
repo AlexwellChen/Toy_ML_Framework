@@ -3,38 +3,11 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <cblas.h>
+// #include <arm_neon.h>
 #include "vector_ops.h" 
-
-//#define BLOCK_TILE 
-//#define USE_PTHREAD 
-
-#ifdef USE_PTHREAD
-struct gemm_thread_args
-{
-  vector<float>* output;
-  const vector<float>* m1;
-  const vector<float>* m2;
-  int m1_rows;
-  int m1_columns;
-  int m2_columns;
-  int row_start;
-  int row_end;
-};
-
-void *dot_block (void *args) {
-    gemm_thread_args* curr_args = (gemm_thread_args*) args;
-    for( int row = curr_args->row_start; row < curr_args->row_end; ++row ) {
-        for( int col = 0; col < curr_args->m2_columns; ++col ) {
-            for( int k = 0; k < curr_args->m1_columns; ++k ) {
-               (*curr_args->output)[row * curr_args->m2_columns + col ] += (*curr_args->m1)[ row * curr_args->m1_columns + k ] * (*curr_args->m2)[k * curr_args->m2_columns + col];
-            }
-        }
-    }
-}
-#endif
-
-
 using namespace std;
+
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
     
     /*  "Couts" the input vector as n_rows x n_columns matrix.
@@ -68,7 +41,7 @@ vector<float> random_vector(const int size)
     mt19937 gen(rd());
     uniform_real_distribution<> distribution(0.0, 0.05);
     static default_random_engine generator;
-
+    
     vector<float> data(size);
     generate(data.begin(), data.end(), [&]() { return distribution(generator); });
     return data;
@@ -169,7 +142,7 @@ vector <float> operator/(const vector <float>& m2, const float m1){
     return product;
 }
 
-vector <float> transform (float *m, const int C, const int R) {
+vector <float> transpose (const vector <float>& m, const int C, const int R) {
     
     /*  Returns a transpose matrix of input matrix.
      Inputs:
@@ -190,7 +163,7 @@ vector <float> transform (float *m, const int C, const int R) {
     return mT;
 }
 
-vector <float> dot (const vector <float>& m1, const vector <float>& m2, const int m1_rows, const int m1_columns, const int m2_columns) {
+vector <float> dot (const vector <float>& m1, const vector <float>& m2, const int m1_rows, const int m1_columns, const int m2_columns, const int type=0) {
     
     /*  Returns the product of two matrices: m1 x m2.
      Inputs:
@@ -203,37 +176,82 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
      Output: vector, m1 * m2, product of two vectors m1 and m2, a matrix of size m1_rows x m2_columns
      */
     
-    vector <float> output (m1_rows*m2_columns, 0);
-#if defined(BLOCK_TILE)
-    const int block_size = 64 / sizeof(float); // 64 = common cache line size
-    int N = m1_rows;
-    int M = m2_columns; 
-    int K = m1_columns;
-// [TASK] WRITE CODE FOR BLOCK TILLING HERE
-#elif defined(USE_PTHREAD) 
-
-    const int num_partitions = 1; //[TASK] SHOULD BE CONFIGURED BY USER
-    pthread_t threads[num_partitions];
-    for (int i = 0; i < num_partitions; ++i) {
-      gemm_thread_args* args = new gemm_thread_args;
-      args->output = &output;
-      // assign rest of the arguments of gemm_thread_args accordingly
-      //pthread_create( [TASK] FILL IN ARGUMENTS );   
-    }
-    for (int i = 0; i < num_partitions; ++i) {
-      //pthread_join( [TASK] FILL IN ARGUMENTS);
-    }
-#else
-    for( int row = 0; row < m1_rows; ++row ) {
-        for( int col = 0; col < m2_columns; ++col ) {
-            for( int k = 0; k < m1_columns; ++k ) {
-                output[ row * m2_columns + col ] += m1[ row * m1_columns + k ] * m2[ k * m2_columns + col ];
+    vector <float> output (m1_rows*m2_columns); // 结果矩阵
+    float r;
+    switch (type) {
+        case 0:
+            for( int row = 0; row < m1_rows; ++row ) {
+                for( int col = 0; col < m2_columns; ++col ) {
+                    for( int k = 0; k < m1_columns; ++k ) {
+                        output[ row * m2_columns + col ] += m1[ row * m1_columns + k ] * m2[ k * m2_columns + col ];
+                    }
+                }
             }
+            break;
+        case 1:
+            // loop interchange
+            for( int row = 0; row < m1_rows; ++row ) {
+                for( int k = 0; k < m1_columns; ++k ) {
+                    r = m1[row * m1_columns + k];
+                    for( int col = 0; col < m2_columns; ++col ) {
+                        output[ row * m2_columns + col ] += r * m2[k * m2_columns + col];
+                    }
+                }
+            }
+            break;
+        case 2:
+        {
+            // loop interchange + loop tiling
+            const int block_size = 128; // 64bytes / 4bytes(a float)
+            int M = m1_rows;
+            int N = m2_columns;
+            int K = m1_columns;
+            for( int i = 0; i < M; i += block_size){
+                int imax =(i + block_size) > M ? M : (i + block_size);
+                for( int j = 0; j < N; j += block_size){
+                    int jmax = (j + block_size) > N ? N : (j + block_size);
+                    for(int k = 0; k < K; k += block_size){
+                        int kmax = (k + block_size) > K ? K : (k + block_size);
+                        for(int ii = i; ii < imax; ii++){
+                            for(int ik = k; ik < kmax; ik++){
+                                r = m1[ii * K + ik];
+                                for(int ij = j; ij < jmax; ij++){
+                                    output[ii * N + ij] += r * m2[ik * N + ij];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
         }
+        case 3:
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m1_rows, m2_columns, m1_columns, 1.0, m1.data(), m1_columns, m2.data(), m2_columns, 0.0, output.data(), m2_columns);
+            break;
+        case 4:
+            // loop interchange + loop tiling + neon
+            const int block_size = 128; // 64bytes / 4bytes(a float)
+            int M = m1_rows;
+            int N = m2_columns;
+            int K = m1_columns;
+            for( int i = 0; i < M; i += block_size){
+                int imax =(i + block_size) > M ? M : (i + block_size);
+                for( int j = 0; j < N; j += block_size){
+                    int jmax = (j + block_size) > N ? N : (j + block_size);
+                    for(int k = 0; k < K; k += block_size){
+                        int kmax = (k + block_size) > K ? K : (k + block_size);
+                        for(int ii = i; ii < imax; ii++){
+                            for(int ik = k; ik < kmax; ik++){
+                                r = m1[ii * K + ik];
+                                for(int ij = j; ij < jmax; ij++){
+                                    output[ii * N + ij] += r * m2[ik * N + ij];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
     }
-#endif
-  return output;
+    return output;
 }
-
-
-
