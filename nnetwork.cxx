@@ -16,11 +16,16 @@
 #define INTERCHANGE 1 // 10000:
 #define TILING_INTERCHANGE 2 // 10000:
 #define BLAS 3 // 10000:
+#define NEON 4
+#define MULTI_THREAD 5
+
+
+#define ITER 10000
 
 #define DOT BLAS
 #define BATCH_SIZE 32
 
-
+using namespace std;
 
 vector<string> split(const string &s, char delim) {
     stringstream ss(s);
@@ -83,7 +88,7 @@ int main(int argc, char * argv[]) {
     std::chrono::time_point<std::chrono::system_clock> t1,t2,t_start,t_end;
     cout << "Training the model ...\n";
     t_start = std::chrono::system_clock::now();
-    for (unsigned i = 0; i < 10000; ++i) {
+    for (unsigned i = 0; i < ITER; ++i) {
         t1 = std::chrono::system_clock::now();
         // Building batches of input variables (X) and labels (y)
         int randindx = rand() % (42000-BATCH_SIZE);
@@ -126,10 +131,6 @@ int main(int argc, char * argv[]) {
             print ( yhat, 10, 10 );
             cout << "Ground truth:" << "\n";
             print ( b_y, 10, 10 );
-//            cout << "W3:" << "\n";
-//            print ( W3, 64, 10 );
-//            cout << "dW3:" << "\n";
-//            print ( dW3, 64, 10 );
             vector<float> loss_m = yhat - b_y; // b_y is true label
             float loss = 0.0;
             for (unsigned k = 0; k < BATCH_SIZE*10; ++k){

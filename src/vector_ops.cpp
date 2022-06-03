@@ -4,8 +4,9 @@
 #include <vector>
 #include <iostream>
 #include <cblas.h>
-// #include <arm_neon.h>
+#include <arm_neon.h>
 #include "vector_ops.h" 
+
 using namespace std;
 
 void print ( const vector <float>& m, int n_rows, int n_columns ) {
@@ -163,6 +164,87 @@ vector <float> transpose (const vector <float>& m, const int C, const int R) {
     return mT;
 }
 
+void matrix_multiply_neon(const float32_t  *A, const float32_t  *B, float32_t *C, const uint32_t n, const uint32_t m, const uint32_t k) {
+    /* 
+     * Multiply matrices A and B, store the result in C. 
+     * It is the user's responsibility to make sure the matrices are compatible.
+     */     
+
+    int A_idx;
+    int B_idx;
+    int C_idx;
+        
+    // these are the columns of a 4x4 sub matrix of A
+    float32x4_t A0;
+    float32x4_t A1;
+    float32x4_t A2;
+    float32x4_t A3;
+        
+    // these are the columns of a 4x4 sub matrix of B
+    float32x4_t B0;
+    float32x4_t B1;
+    float32x4_t B2;
+    float32x4_t B3;
+        
+    // these are the columns of a 4x4 sub matrix of C
+    float32x4_t C0;
+    float32x4_t C1;
+    float32x4_t C2;
+    float32x4_t C3;
+        
+    for (int i_idx=0; i_idx<n; i_idx+=4) {
+        for (int j_idx=0; j_idx<m; j_idx+=4){
+            // zero accumulators before matrix op
+            C0=vmovq_n_f32(0);
+            C1=vmovq_n_f32(0);
+            C2=vmovq_n_f32(0); 
+            C3=vmovq_n_f32(0);
+            for (int k_idx=0; k_idx<k; k_idx+=4){
+                // compute base index to 4x4 block
+                A_idx = i_idx + n*k_idx;
+                B_idx = k*j_idx + k_idx;
+
+                // load most current a values in row
+                A0=vld1q_f32(A+A_idx);
+                A1=vld1q_f32(A+A_idx+n);
+                A2=vld1q_f32(A+A_idx+2*n);
+                A3=vld1q_f32(A+A_idx+3*n);
+
+                // multiply accumulate 4x1 blocks, i.e. each column C
+                B0=vld1q_f32(B+B_idx);
+                C0=vfmaq_laneq_f32(C0,A0,B0,0);
+                C0=vfmaq_laneq_f32(C0,A1,B0,1);
+                C0=vfmaq_laneq_f32(C0,A2,B0,2);
+                C0=vfmaq_laneq_f32(C0,A3,B0,3);
+
+                B1=vld1q_f32(B+B_idx+k);
+                C1=vfmaq_laneq_f32(C1,A0,B1,0);
+                C1=vfmaq_laneq_f32(C1,A1,B1,1);
+                C1=vfmaq_laneq_f32(C1,A2,B1,2);
+                C1=vfmaq_laneq_f32(C1,A3,B1,3);
+
+                B2=vld1q_f32(B+B_idx+2*k);
+                C2=vfmaq_laneq_f32(C2,A0,B2,0);
+                C2=vfmaq_laneq_f32(C2,A1,B2,1);
+                C2=vfmaq_laneq_f32(C2,A2,B2,2);
+                C2=vfmaq_laneq_f32(C2,A3,B3,3);
+
+                B3=vld1q_f32(B+B_idx+3*k);
+                C3=vfmaq_laneq_f32(C3,A0,B3,0);
+                C3=vfmaq_laneq_f32(C3,A1,B3,1);
+                C3=vfmaq_laneq_f32(C3,A2,B3,2);
+                C3=vfmaq_laneq_f32(C3,A3,B3,3);
+            }
+            //Compute base index for stores
+            C_idx = n*j_idx + i_idx;
+            vst1q_f32(C+C_idx, C0);
+            vst1q_f32(C+C_idx+n, C1);
+            vst1q_f32(C+C_idx+2*n,C2);
+            vst1q_f32(C+C_idx+3*n,C3);
+        }
+    }
+}
+
 vector <float> dot (const vector <float>& m1, const vector <float>& m2, const int m1_rows, const int m1_columns, const int m2_columns, const int type=0) {
     
     /*  Returns the product of two matrices: m1 x m2.
@@ -178,6 +260,9 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
     
     vector <float> output (m1_rows*m2_columns); // 结果矩阵
     float r;
+    int N = m1_rows;
+    int M = m2_columns;
+    int K = m1_columns;
     switch (type) {
         case 0:
             for( int row = 0; row < m1_rows; ++row ) {
@@ -203,12 +288,9 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
         {
             // loop interchange + loop tiling
             const int block_size = 128; // 64bytes / 4bytes(a float)
-            int M = m1_rows;
-            int N = m2_columns;
-            int K = m1_columns;
-            for( int i = 0; i < M; i += block_size){
+            for( int i = 0; i < N; i += block_size){
                 int imax =(i + block_size) > M ? M : (i + block_size);
-                for( int j = 0; j < N; j += block_size){
+                for( int j = 0; j < M; j += block_size){
                     int jmax = (j + block_size) > N ? N : (j + block_size);
                     for(int k = 0; k < K; k += block_size){
                         int kmax = (k + block_size) > K ? K : (k + block_size);
@@ -226,32 +308,17 @@ vector <float> dot (const vector <float>& m1, const vector <float>& m2, const in
             break;
         }
         case 3:
-            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m1_rows, m2_columns, m1_columns, 1.0, m1.data(), m1_columns, m2.data(), m2_columns, 0.0, output.data(), m2_columns);
+            cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, M, K, 1.0, m1.data(), m1_columns, m2.data(), m2_columns, 0.0, output.data(), m2_columns);
             break;
         case 4:
             // loop interchange + loop tiling + neon
-            const int block_size = 128; // 64bytes / 4bytes(a float)
-            int M = m1_rows;
-            int N = m2_columns;
-            int K = m1_columns;
-            for( int i = 0; i < M; i += block_size){
-                int imax =(i + block_size) > M ? M : (i + block_size);
-                for( int j = 0; j < N; j += block_size){
-                    int jmax = (j + block_size) > N ? N : (j + block_size);
-                    for(int k = 0; k < K; k += block_size){
-                        int kmax = (k + block_size) > K ? K : (k + block_size);
-                        for(int ii = i; ii < imax; ii++){
-                            for(int ik = k; ik < kmax; ik++){
-                                r = m1[ii * K + ik];
-                                for(int ij = j; ij < jmax; ij++){
-                                    output[ii * N + ij] += r * m2[ik * N + ij];
-                                }
-                            }
-                        }
-                    }
-                }
+            if(M%4==0 && N%4==0 && K%4==0){
+                matrix_multiply_neon(m1.data(), m2.data(), output.data(), N, M, K);
+            }else{
+                cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, M, K, 1.0, m1.data(), m1_columns, m2.data(), m2_columns, 0.0, output.data(), m2_columns);
             }
             break;
     }
     return output;
 }
+
