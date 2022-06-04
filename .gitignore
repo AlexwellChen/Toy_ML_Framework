@@ -9,3 +9,7 @@
 .vscode/tasks.json
 .vscode/c_cpp_properties.json
 .vscode/c_cpp_properties.json
+model.dSYM/Contents/Resources/DWARF/model
+model.dSYM/Contents/Info.plist
+model
+.vscode/c_cpp_properties.json
