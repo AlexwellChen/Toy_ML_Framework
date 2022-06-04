@@ -27,6 +27,9 @@ nnetwork_mpi: $(OBJ) nnetwork_mpi.o
 nnetwork: $(OBJ) nnetwork.o
 	$(CXX) -o $@ $^ $(LIBS)
 
+model: $(OBJ) model.o
+	$(CXX) -o $@ $^ $(LIBS)
+
 run_pthreads:
 	./nnetwork
 
@@ -41,4 +44,4 @@ default: clean nnetwork
 .DEFAULT_GOAL := default
 
 clean:
-	rm -f $(ODIR)/*.o *.o nnetwork_mpi nnetwork
+	rm -f $(ODIR)/*.o *.o nnetwork_mpi nnetwork model
