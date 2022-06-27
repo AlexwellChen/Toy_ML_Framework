@@ -87,7 +87,7 @@ public:
         newNode.op = this;
         newNode.input.push_back(nodeA);
         newNode.input.push_back(nodeB);
-        newNode.name = nodeA.name + "+" + nodeB.name;
+        newNode.name = nodeA.name + " + " + nodeB.name;
         newNode.isPlaceHolder = false;
         return newNode;
     }
@@ -96,9 +96,11 @@ public:
         // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
         // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
         vector<vector<float>> res;
-        float value = input_vals[0][0] + input_vals[1][0];
+        int size = input_vals[0].size();
         vector<float> t;
-        t.push_back(value);
+        for(int i = 0; i< size; i++){
+            t.push_back(input_vals[0][i] + input_vals[1][i]);
+        }
         res.push_back(t);
         return res;
     }
@@ -123,7 +125,7 @@ public:
         newNode.input.push_back(nodeA);
         newNode.const_attr = const_val;
         newNode.isPlaceHolder = false;
-        newNode.name = nodeA.name + "+" + std::to_string(const_val);
+        newNode.name = nodeA.name + " + " + std::to_string(const_val);
         return newNode;
     }
 
@@ -156,7 +158,7 @@ public:
         newNode.input.push_back(nodeA);
         newNode.input.push_back(nodeB);
         newNode.isPlaceHolder = false;
-        newNode.name = nodeA.name + "*" + nodeB.name;
+        newNode.name = nodeA.name + " * " + nodeB.name;
         return newNode;
     }
 
@@ -164,9 +166,11 @@ public:
         // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
         // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
         vector<vector<float>> res;
-        float value = input_vals[0][0] * input_vals[0][1];
+        int size = input_vals[0].size();
         vector<float> t;
-        t.push_back(value);
+        for(int i = 0; i < size; i++){
+            t.push_back(input_vals[0][i] * input_vals[1][i]);
+        }
         res.push_back(t);
         return res;
     }
@@ -325,6 +329,7 @@ public:
             if(node.isPlaceHolder){
                 continue;
             }
+            input_vals.clear();
             for(Node in_node : node.input){
                 input_vals.push_back(feed_dic[in_node.hash_code]);
             }
@@ -357,7 +362,7 @@ vector<Node> gradients(Node output_node, vector<Node> node_list){
         node_to_output_grad[node.hash_code] = grad;
         vector<Node> grad_list;
         grad_list.push_back(grad);
-        vector<Node> input_grads = node.op->gradient(node, grad_list);
+        vector<Node> input_grads = node.op->gradient(node, grad_list); // 计算当前节点前驱的梯度
         for(int i = 0; i < node.input.size(); i++){
             node_to_output_grads_list[node.input[i].hash_code] = node_to_output_grads_list[node.input[i].hash_code];
             node_to_output_grads_list[node.input[i].hash_code].push_back(input_grads[i]);
@@ -374,24 +379,29 @@ vector<Node> gradients(Node output_node, vector<Node> node_list){
 int main(){
     Node x1 = Variable("x1");
     Node x2 = Variable("x2");
-    Node y = x1 * x2;
+    Node x3 = Variable("x3");
+    Node y = x1 * x2 + x3;
 
     vector<Node> input_nodes;
     input_nodes.push_back(x1);
     input_nodes.push_back(x2);
+    input_nodes.push_back(x3);
 
     vector<Node> grads = gradients(y, input_nodes);
     vector<Node> exe_list;
     exe_list.push_back(y);
     exe_list.push_back(grads[0]);
     exe_list.push_back(grads[1]);
+    exe_list.push_back(grads[2]);
     Executor executor = Executor(exe_list);
 
-    vector<float> x1_val(1, 1);
-    vector<float> x2_val(1, 2);
+    vector<float> x1_val(3, 1);
+    vector<float> x2_val(3, 2);
+    vector<float> x3_val(3, 4);
     map<int, vector<float>> feed_dic;
     feed_dic[x1.hash_code] = x1_val;
     feed_dic[x2.hash_code] = x2_val;
+    feed_dic[x3.hash_code] = x3_val;
     vector<vector<float>> res = executor.run(feed_dic);
     for(int i = 0; i < exe_list.size(); i++){
         cout<<"Node: "<< exe_list[i].name << " value is: "<< res[i][0]<<endl;
