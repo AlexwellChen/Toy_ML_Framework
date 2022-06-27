@@ -19,15 +19,9 @@ public:
     int hash_code;
     bool isPlaceHolder;
 
-//    virtual Node operator+(float &value);
-
     virtual Node operator+(Node &nodeB);
 
     virtual Node operator*(Node &nodeB);
-
-    string getName(){
-        return this->name;
-    }
 
     bool operator<(const Node& node) const{
         if (this->hash_code <= node.hash_code)return true;
@@ -35,7 +29,6 @@ public:
     }
 
     ~Node() = default;
-
 };
 
 Node Op::getNewNode() {
@@ -48,7 +41,7 @@ vector<vector<float>> Op::compute(Node &node, vector<vector<float>> &input_vals)
     return vector<vector<float>>();
 }
 
-vector<Node> Op::gradient(Node &node, vector<Node> &output_gradient) {
+vector<Node> Op::gradient(Node &node, Node &output_gradient) {
     return vector<Node>();
 }
 
@@ -68,7 +61,7 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override{
+    vector<Node> gradient(Node &node, Node &output_gradient) override{
         vector<Node> res;
         return res;
     }
@@ -105,10 +98,10 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
-        res.push_back(output_gradient[0]);
-        res.push_back(output_gradient[0]);
+        res.push_back(output_gradient);
+        res.push_back(output_gradient);
         return res;
     }
 
@@ -140,9 +133,9 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
-        res.push_back(output_gradient[0]);
+        res.push_back(output_gradient);
         return res;
     }
 
@@ -175,10 +168,10 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
-        Node out1 = MulOp::getNewNode(node.input[1], output_gradient[0]);
-        Node out2 = MulOp::getNewNode(node.input[0], output_gradient[0]);
+        Node out1 = MulOp::getNewNode(node.input[1], output_gradient);
+        Node out2 = MulOp::getNewNode(node.input[0], output_gradient);
         res.push_back(out1);
         res.push_back(out2);
         return res;
@@ -206,12 +199,13 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
         Node newNode = Node();
         newNode.input.push_back(node.input[0]);
         newNode.name = "Zeroslike(" + node.input[0].name + ")";
         res.push_back(newNode);
+        return res;
     }
 
 };
@@ -236,12 +230,13 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, vector<Node> &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
         Node newNode = Node();
         newNode.input.push_back(node.input[0]);
         newNode.name = "Zeroslike(" + node.input[0].name + ")";
         res.push_back(newNode);
+        return res;
     }
 
 };
@@ -360,9 +355,7 @@ vector<Node> gradients(Node output_node, vector<Node> node_list){
     for(Node node : reverse_topo_sort){
         Node grad = sum_node_list(node_to_output_grads_list[node.hash_code]);
         node_to_output_grad[node.hash_code] = grad;
-        vector<Node> grad_list;
-        grad_list.push_back(grad);
-        vector<Node> input_grads = node.op->gradient(node, grad_list); // 计算当前节点前驱的梯度
+        vector<Node> input_grads = node.op->gradient(node, grad); // 计算当前节点前驱的梯度
         for(int i = 0; i < node.input.size(); i++){
             node_to_output_grads_list[node.input[i].hash_code] = node_to_output_grads_list[node.input[i].hash_code];
             node_to_output_grads_list[node.input[i].hash_code].push_back(input_grads[i]);
@@ -386,8 +379,8 @@ int main(){
     input_nodes.push_back(x1);
     input_nodes.push_back(x2);
     input_nodes.push_back(x3);
-
     vector<Node> grads = gradients(y, input_nodes);
+
     vector<Node> exe_list;
     exe_list.push_back(y);
     exe_list.push_back(grads[0]);

@@ -26,7 +26,7 @@ public:
 
     virtual vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals);
 
-    virtual vector<Node> gradient(Node &node, vector<Node> &output_gradient);
+    virtual vector<Node> gradient(Node &node, Node &output_gradient);
 
     ~Op() = default;
 };
