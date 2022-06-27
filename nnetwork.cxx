@@ -9,8 +9,8 @@
 #include <sstream>
 #include <string>
 #include <chrono>
-#include "deep_core.h"
-#include "vector_ops.h"
+#include "include/deep_core.h"
+#include "include/vector_ops.h"
 
 #define INIT 0 // 10000:
 #define INTERCHANGE 1 // 10000:

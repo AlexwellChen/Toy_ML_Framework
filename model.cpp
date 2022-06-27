@@ -1,7 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <algorithm>
-#include <random>
 #include <sstream>
 #include <string>
 #include <chrono>
@@ -37,31 +35,49 @@ class Layer{
         int valid_node_number;
 };
 
+class InputLayer : public Layer{
+    public:
+        InputLayer(int &node_number, int &batchSize){
+            Layer(inputSize);
+            batch = batchSize;
+        }
+        void loadData(vector<float> &X_train, int &randindx){
+            int inputSize = getNodeNum();
+            for (unsigned j = randindx*inputSize; j < (randindx+batchSize)*inputSize; ++j){
+                inputMat.push_back(X_train[j]);
+            }
+
+        }
+    private:
+        vector<float> inputMat;
+        int batch;
+};
+
+class Dense : public Layer{
+    public:
+        Dense(int &inputSize, int &batchSize){
+            Layer(inputSize);
+            vector<float> result = random_vector(batchSize*inputSize);
+        }
+    private:
+        vector<float> W;
+        vector<float> result;
+}
+
 class Model{
     private:
         vector<Layer*> layers;
         vector<vector<float>> mats;
-
-        vector<float> random_vector(const int size)
-        {
-            /*  Generates a random vector with uniform distribution
-            Inputs:
-            size: the vector size
-            */
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_real_distribution<> distribution(0.0, 0.05);
-            static default_random_engine generator;
-            
-            vector<float> data(size);
-            generate(data.begin(), data.end(), [&]() { return distribution(generator); });
-            return data;
-        }
-
+        int batchSize;
+        float lr;
+        vector<float> X_train;
+        vector<float> y_train;
 
     public:
-        Model(){
-            // Nothing
+        Model(int _batchSize=32){
+            batchSize = _batchSize;
+            lr = 0.01/_batchSize;
+            loadDataSet();
         }
 
         void add(int nodeNum){
@@ -108,9 +124,6 @@ class Model{
             int mat_num = mats.size();
             cout << "Matrix number: "<< mat_num << endl;
             for(int i = 0, j = 1; i < mat_num; i++, j++){
-                if(i == 2){
-                    break;
-                }
                 cout << "-----------------------------" << endl;
                 cout << "Layer " << i << " and Layer " << j << ":" << endl;
                 int n = layers[i]->getNodeNum();
@@ -118,6 +131,38 @@ class Model{
                 print_mat(mats[i], n, m);
             }
         }
+
+        void loadDataSet(){
+            string line;
+            vector<string> line_v;
+            int len, mpirank = 0;
+            cout << "Loading data ...\n";
+            ifstream myfile ("train.txt");
+            if (myfile.is_open())
+            {
+                while ( getline (myfile,line) )
+                {
+                    line_v = split(line, '\t');
+                    int digit = strtof((line_v[0]).c_str(),0);
+                    for (unsigned i = 0; i < 10; ++i) {
+                        if (i == digit)
+                        {
+                            y_train.push_back(1.);
+                        }
+                        else y_train.push_back(0.);
+                    }
+                    
+                    int size = static_cast<int>(line_v.size());
+                    for (unsigned i = 1; i < size; ++i) {
+                        X_train.push_back(strtof((line_v[i]).c_str(),0));
+                    }
+                }
+                X_train = X_train/255.0;
+                myfile.close();
+            }
+            else cout << "Unable to open file" << '\n';
+        }
+
 };
 
 int main(int argc, char * argv[]){
