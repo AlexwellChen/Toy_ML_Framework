@@ -298,7 +298,7 @@ vector<Node> find_topo_sort(vector<Node> &node_list) {
     return topo_order;
 }
 
-Node sum_node_list(vector<Node> node_list) {
+Node sum_node_list(vector<Node> &node_list) {
     Node res = node_list[0];
     int i = 1;
     int size = node_list.size();
@@ -340,7 +340,7 @@ public:
     }
 };
 
-vector<Node> gradients(Node output_node, vector<Node> node_list) {
+vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
     map<int, vector<Node>> node_to_output_grads_list;
     vector<Node> ones;
     Node out_ones = ones_like_op.getNewNode(output_node);
