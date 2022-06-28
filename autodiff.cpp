@@ -9,9 +9,10 @@ using namespace std;
 
 class Node {
 public:
-    Node(){
+    Node() {
         this->const_attr = 0.0;
     }
+
     vector<Node> input;
     Op *op;
     float const_attr;
@@ -23,7 +24,7 @@ public:
 
     virtual Node operator*(Node &nodeB);
 
-    bool operator<(const Node& node) const{
+    bool operator<(const Node &node) const {
         if (this->hash_code <= node.hash_code)return true;
         if (this->hash_code > node.hash_code)return false;
     }
@@ -47,7 +48,7 @@ vector<Node> Op::gradient(Node &node, Node &output_gradient) {
 
 class Placeholders : public Op {
 public:
-    Node getNewNode(){
+    Node getNewNode() {
         Node newNode = Node();
         newNode.isPlaceHolder = true;
         newNode.op = this;
@@ -61,14 +62,13 @@ public:
         return res;
     }
 
-    vector<Node> gradient(Node &node, Node &output_gradient) override{
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
         vector<Node> res;
         return res;
     }
 
     ~Placeholders() = default;
 };
-
 
 
 class AddOp : public Op {
@@ -91,7 +91,7 @@ public:
         vector<vector<float>> res;
         int size = input_vals[0].size();
         vector<float> t;
-        for(int i = 0; i< size; i++){
+        for (int i = 0; i < size; i++) {
             t.push_back(input_vals[0][i] + input_vals[1][i]);
         }
         res.push_back(t);
@@ -105,7 +105,7 @@ public:
         return res;
     }
 
-    ~AddOp()= default;
+    ~AddOp() = default;
 };
 
 class AddByConstOp : public Op {
@@ -139,12 +139,13 @@ public:
         return res;
     }
 
-    ~AddByConstOp(){};
+    ~AddByConstOp() {};
 };
 
 class MulOp : public Op {
 public:
     MulOp() = default;
+
     Node getNewNode(Node &nodeA, Node &nodeB) {
         Node newNode = Node();
         newNode.op = this;
@@ -161,7 +162,7 @@ public:
         vector<vector<float>> res;
         int size = input_vals[0].size();
         vector<float> t;
-        for(int i = 0; i < size; i++){
+        for (int i = 0; i < size; i++) {
             t.push_back(input_vals[0][i] * input_vals[1][i]);
         }
         res.push_back(t);
@@ -192,7 +193,7 @@ public:
         return newNode;
     }
 
-    vector<vector<float>> compute(Node &nodeA, vector<vector<float>> &input_vals){
+    vector<vector<float>> compute(Node &nodeA, vector<vector<float>> &input_vals) {
         vector<float> zeros(input_vals[0].size(), 0);
         vector<vector<float>> res;
         res.push_back(zeros);
@@ -248,7 +249,7 @@ OnesLikeOp ones_like_op = OnesLikeOp();
 MulOp mul_op = MulOp();
 
 
-Node Variable(string var_name){
+Node Variable(string var_name) {
     Node placeholder_node = placeholder_op.getNewNode();
     placeholder_node.name = var_name;
     int hash = 0;
@@ -265,80 +266,81 @@ Node Variable(string var_name){
 //    return newNode;
 //}
 
-Node Node::operator+(Node &nodeB){
+Node Node::operator+(Node &nodeB) {
     Node nodeA = *this;
     Node newNode = add_op.getNewNode(nodeA, nodeB);
     return newNode;
 }
 
-Node Node::operator*(Node &nodeB){
+Node Node::operator*(Node &nodeB) {
     Node nodeA = *this;
     Node newNode = mul_op.getNewNode(nodeA, nodeB);
     return newNode;
 }
 
-void topo_sort_dfs(Node &node, std::unordered_set<int> &visited, vector<Node> &topo_order){
-    if(visited.count(node.hash_code)){
+void topo_sort_dfs(Node &node, std::unordered_set<int> &visited, vector<Node> &topo_order) {
+    if (visited.count(node.hash_code)) {
         return;
     }
     visited.emplace(node.hash_code);
-    for(Node &in_node : node.input){
+    for (Node &in_node: node.input) {
         topo_sort_dfs(in_node, visited, topo_order);
     }
     topo_order.push_back(node);
 }
 
-vector<Node> find_topo_sort(vector<Node> &node_list){
+vector<Node> find_topo_sort(vector<Node> &node_list) {
     std::unordered_set<int> visited;
     vector<Node> topo_order;
-    for(Node &node : node_list){
+    for (Node &node: node_list) {
         topo_sort_dfs(node, visited, topo_order);
     }
     return topo_order;
 }
 
-Node sum_node_list(vector<Node> node_list){
+Node sum_node_list(vector<Node> node_list) {
     Node res = node_list[0];
     int i = 1;
     int size = node_list.size();
-    for(i = 1; i < size ; i++){
+    for (i = 1; i < size; i++) {
         res = res + node_list[i];
     }
     return res;
 }
 
-class Executor{
+class Executor {
 public:
     vector<Node> node_list;
-    Executor(vector<Node> &eval_node_list){
+
+    Executor(vector<Node> &eval_node_list) {
         this->node_list = eval_node_list;
     }
 
     ~Executor() = default;
 
-    vector<vector<float>> run(map<int, vector<float>>& feed_dic){
+    vector<vector<float>> run(map<int, vector<float>> &feed_dic) {
         vector<Node> topo_order = find_topo_sort(this->node_list);
         vector<vector<float>> input_vals; // 输入
         vector<vector<float>> output_vals; // 输出
-        for(Node node : topo_order){
-            if(node.isPlaceHolder){
+        for (Node node: topo_order) {
+            if (node.isPlaceHolder) {
                 continue;
             }
             input_vals.clear();
-            for(Node in_node : node.input){
+            for (Node in_node: node.input) {
                 input_vals.push_back(feed_dic[in_node.hash_code]);
             }
             auto res = node.op->compute(node, input_vals);
             feed_dic[node.hash_code] = res[0];
         }
-        for(Node node : this->node_list){
+        for (Node node: this->node_list) {
             output_vals.push_back(feed_dic[node.hash_code]);
         }
         return output_vals;
     }
 };
 
-vector<Node> gradients(Node output_node, vector<Node> node_list){
+vector<Node> gradients(Node output_node, vector<Node> node_list) {
     map<int, vector<Node>> node_to_output_grads_list;
     vector<Node> ones;
     Node out_ones = ones_like_op.getNewNode(output_node);
@@ -352,24 +354,23 @@ vector<Node> gradients(Node output_node, vector<Node> node_list){
     vector<Node> reverse_topo_sort = find_topo_sort(output_node_list);
     reverse(reverse_topo_sort.begin(), reverse_topo_sort.end());
 
-    for(Node node : reverse_topo_sort){
+    for (Node node: reverse_topo_sort) {
         Node grad = sum_node_list(node_to_output_grads_list[node.hash_code]);
         node_to_output_grad[node.hash_code] = grad;
         vector<Node> input_grads = node.op->gradient(node, grad); // 计算当前节点前驱的梯度
-        for(int i = 0; i < node.input.size(); i++){
+        for (int i = 0; i < node.input.size(); i++) {
             node_to_output_grads_list[node.input[i].hash_code] = node_to_output_grads_list[node.input[i].hash_code];
             node_to_output_grads_list[node.input[i].hash_code].push_back(input_grads[i]);
         }
     }
-
     vector<Node> grad_node_list;
-    for(Node node : node_list){
+    for (Node node: node_list) {
         grad_node_list.push_back(node_to_output_grad[node.hash_code]);
     }
     return grad_node_list;
 }
 
-int main(){
+int main() {
     Node x1 = Variable("x1");
     Node x2 = Variable("x2");
     Node x3 = Variable("x3");
@@ -396,7 +397,7 @@ int main(){
     feed_dic[x2.hash_code] = x2_val;
     feed_dic[x3.hash_code] = x3_val;
     vector<vector<float>> res = executor.run(feed_dic);
-    for(int i = 0; i < exe_list.size(); i++){
-        cout<<"Node: "<< exe_list[i].name << " value is: "<< res[i][0]<<endl;
+    for (int i = 0; i < exe_list.size(); i++) {
+        cout << "Node: " << exe_list[i].name << " value is: " << res[i][0] << endl;
     }
 }
