@@ -3,8 +3,11 @@
 #include <unordered_set>
 #include <map>
 #include "include/deep_core.h"
-#include "include/Op.h"
+#include "include/MatOp.h"
+#include <cblas.h>
+#include <Eigen/Dense>
 
+using namespace Eigen;
 using namespace std;
 
 class Node {
@@ -19,10 +22,11 @@ public:
     string name;
     int hash_code;
     bool isPlaceHolder;
-
-    virtual Node operator+(Node &nodeB);
+    bool matmul_attr_trans_A;
+    bool matmul_attr_trans_B;
 
     virtual Node operator*(Node &nodeB);
+    virtual Node operator+(Node &nodeB);
 
     bool operator<(const Node &node) const {
         if (this->hash_code <= node.hash_code)return true;
@@ -38,11 +42,11 @@ Node Op::getNewNode() {
     return newNode;
 }
 
-vector<vector<float>> Op::compute(Node &node, vector<vector<float>> &input_vals) {
-    return vector<vector<float>>();
+vector<MatrixXd> Op::compute(Node &node, vector<MatrixXd> &input_vals) {
+    return vector<MatrixXd>();
 }
 
-vector<Node> Op::gradient(Node &node, Node &output_gradient) {
+vector<Node> Op::gradient(Node &node, Node &output_gradient){
     return vector<Node>();
 }
 
@@ -55,14 +59,14 @@ public:
         return newNode;
     }
 
-    vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals) override {
+    vector<MatrixXd> compute(Node &node, vector<MatrixXd> &input_vals) {
         // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
         // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
-        vector<vector<float>> res;
+        vector<MatrixXd> res;
         return res;
     }
 
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) {
         vector<Node> res;
         return res;
     }
@@ -70,114 +74,85 @@ public:
     ~Placeholders() = default;
 };
 
-
-class AddOp : public Op {
+class MatAddOp : public Op {
 public:
-    AddOp() = default;
 
-    Node getNewNode(Node &nodeA, Node &nodeB) {
+
+    Node getNewNode(Node &nodeA, Node &nodeB, bool trans_A, bool trans_B) {
         Node newNode = Node();
         newNode.op = this;
-        newNode.input.push_back(nodeA);
-        newNode.input.push_back(nodeB);
-        newNode.name = nodeA.name + " + " + nodeB.name;
-        newNode.isPlaceHolder = false;
-        return newNode;
-    }
-
-    vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals) override {
-        // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
-        // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
-        vector<vector<float>> res;
-        int size = input_vals[0].size();
-        vector<float> t;
-        for (int i = 0; i < size; i++) {
-            t.push_back(input_vals[0][i] + input_vals[1][i]);
-        }
-        res.push_back(t);
-        return res;
-    }
-
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
-        vector<Node> res;
-        res.push_back(output_gradient);
-        res.push_back(output_gradient);
-        return res;
-    }
-
-    ~AddOp() = default;
-};
-
-class AddByConstOp : public Op {
-public:
-    AddByConstOp() = default;
-
-    Node getNewNode(Node &nodeA, float &const_val) {
-        Node newNode = Node();
-        newNode.op = this;
-        newNode.input.push_back(nodeA);
-        newNode.const_attr = const_val;
-        newNode.isPlaceHolder = false;
-        newNode.name = nodeA.name + " + " + std::to_string(const_val);
-        return newNode;
-    }
-
-    vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals) override {
-        // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
-        // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
-        vector<vector<float>> res;
-        float value = input_vals[0][0] + node.const_attr;
-        vector<float> t;
-        t.push_back(value);
-        res.push_back(t);
-        return res;
-    }
-
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
-        vector<Node> res;
-        res.push_back(output_gradient);
-        return res;
-    }
-
-    ~AddByConstOp() {};
-};
-
-class MulOp : public Op {
-public:
-    MulOp() = default;
-
-    Node getNewNode(Node &nodeA, Node &nodeB) {
-        Node newNode = Node();
-        newNode.op = this;
+        newNode.matmul_attr_trans_A = trans_A;
+        newNode.matmul_attr_trans_B = trans_B;
         newNode.input.push_back(nodeA);
         newNode.input.push_back(nodeB);
         newNode.isPlaceHolder = false;
-        newNode.name = nodeA.name + " * " + nodeB.name;
+        newNode.name = "MatAdd( " + nodeA.name + ", " + nodeB.name + ") ";
         return newNode;
     }
 
-    vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals) override {
-        // input_vals[0]代表第一个数，input_vals[1]代表第二个数。
-        // 这两个数可以是浮点数，也可以是矩阵。在这里是浮点数，并且存放在长度为1的vector中。
-        vector<vector<float>> res;
-        int size = input_vals[0].size();
-        vector<float> t;
-        for (int i = 0; i < size; i++) {
-            t.push_back(input_vals[0][i] * input_vals[1][i]);
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) {
+        if(nodeA.matmul_attr_trans_A){
+            input_vals[0].transposeInPlace();
         }
-        res.push_back(t);
+        if(nodeA.matmul_attr_trans_B){
+            input_vals[1].transposeInPlace();
+        }
+        MatrixXd res_mat = input_vals[0] + input_vals[1];
+        vector<MatrixXd> res;
+        res.push_back(res_mat);
         return res;
     }
 
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) {
         vector<Node> res;
-        Node out1 = MulOp::getNewNode(node.input[1], output_gradient);
-        Node out2 = MulOp::getNewNode(node.input[0], output_gradient);
-        res.push_back(out1);
-        res.push_back(out2);
+        res.push_back(output_gradient);
+        res.push_back(output_gradient);
+        return res;
+    }
+};
+
+class MatMulOp : public Op {
+public:
+
+    Node getNewNode(Node &nodeA, Node &nodeB, bool trans_A, bool trans_B) {
+        Node newNode = Node();
+        newNode.op = this;
+        newNode.matmul_attr_trans_A = trans_A;
+        newNode.matmul_attr_trans_B = trans_B;
+        newNode.input.push_back(nodeA);
+        newNode.input.push_back(nodeB);
+        newNode.isPlaceHolder = false;
+        newNode.name = "MatMul( " + nodeA.name + ", " + nodeB.name + ") ";
+        return newNode;
+    }
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) {
+        MatrixXd res_mat;
+        if(nodeA.matmul_attr_trans_A && nodeA.matmul_attr_trans_B){
+            res_mat = input_vals[0].transpose() * input_vals[1].transpose();
+        }
+        else if(!nodeA.matmul_attr_trans_A && nodeA.matmul_attr_trans_B){
+            res_mat = input_vals[0] * input_vals[1].transpose();
+        }
+        else if(nodeA.matmul_attr_trans_A && !nodeA.matmul_attr_trans_B){
+            res_mat = input_vals[0].transpose() * input_vals[1];
+        }
+        else{
+            res_mat = input_vals[0] * input_vals[1];
+        }
+        vector<MatrixXd> res;
+        res.push_back(res_mat);
         return res;
     }
 
+    vector<Node> gradient(Node &node, Node &output_gradient) {
+        vector<Node> res;
+        Node newNode_A = getNewNode(output_gradient, node.input[1], false, true);
+        Node newNode_B = getNewNode(node.input[0], output_gradient, true, false);
+        res.push_back(newNode_A);
+        res.push_back(newNode_B);
+        return res;
+    }
 };
 
 class ZerosLikeOp : public Op {
@@ -193,14 +168,14 @@ public:
         return newNode;
     }
 
-    vector<vector<float>> compute(Node &nodeA, vector<vector<float>> &input_vals) {
-        vector<float> zeros(input_vals[0].size(), 0);
-        vector<vector<float>> res;
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) {
+        MatrixXd zeros = MatrixXd::Zero(input_vals[0].rows(),input_vals[0].cols());
+        vector<MatrixXd> res;
         res.push_back(zeros);
         return res;
     }
 
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) {
         vector<Node> res;
         Node newNode = Node();
         newNode.input.push_back(node.input[0]);
@@ -224,14 +199,14 @@ public:
         return newNode;
     }
 
-    vector<vector<float>> compute(Node &node, vector<vector<float>> &input_vals) override {
-        vector<float> ones(input_vals[0].size(), 1);
-        vector<vector<float>> res;
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) {
+        MatrixXd ones = MatrixXd::Ones(input_vals[0].rows(),input_vals[0].cols());
+        vector<MatrixXd> res;
         res.push_back(ones);
         return res;
     }
 
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
+    vector<Node> gradient(Node &node, Node &output_gradient) {
         vector<Node> res;
         Node newNode = Node();
         newNode.input.push_back(node.input[0]);
@@ -243,10 +218,9 @@ public:
 };
 
 Placeholders placeholder_op = Placeholders();
-AddOp add_op = AddOp();
-AddByConstOp add_byconst_op = AddByConstOp();
 OnesLikeOp ones_like_op = OnesLikeOp();
-MulOp mul_op = MulOp();
+MatMulOp matmul_op = MatMulOp();
+MatAddOp matadd_op = MatAddOp();
 
 
 Node Variable(string var_name) {
@@ -260,21 +234,16 @@ Node Variable(string var_name) {
     return placeholder_node;
 }
 
-//Node Node::operator+(float &value){
-//    Node* nodeA = this;
-//    Node newNode = add_byconst_op.getNewNode(reinterpret_cast<Node &>(nodeA), value);
-//    return newNode;
-//}
-
-Node Node::operator+(Node &nodeB) {
-    Node nodeA = *this;
-    Node newNode = add_op.getNewNode(nodeA, nodeB);
-    return newNode;
-}
 
 Node Node::operator*(Node &nodeB) {
     Node nodeA = *this;
-    Node newNode = mul_op.getNewNode(nodeA, nodeB);
+    Node newNode = matmul_op.getNewNode(nodeA, nodeB, false, false);
+    return newNode;
+}
+
+Node Node::operator+(Node &nodeB) {
+    Node nodeA = *this;
+    Node newNode = matadd_op.getNewNode(nodeA, nodeB, false, false);
     return newNode;
 }
 
@@ -318,10 +287,10 @@ public:
 
     ~Executor() = default;
 
-    vector<vector<float>> run(map<int, vector<float>> &feed_dic) {
+    vector<MatrixXd> run(map<int, MatrixXd> &feed_dic) {
         vector<Node> topo_order = find_topo_sort(this->node_list);
-        vector<vector<float>> input_vals; // 输入
-        vector<vector<float>> output_vals; // 输出
+        vector<MatrixXd> input_vals; // 输入
+        vector<MatrixXd> output_vals; // 输出
         for (Node node: topo_order) {
             if (node.isPlaceHolder) {
                 continue;
@@ -373,31 +342,31 @@ vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
 int main() {
     Node x1 = Variable("x1");
     Node x2 = Variable("x2");
-    Node x3 = Variable("x3");
-    Node y = x1 * x2 + x3;
+    Node y = x1 * x2;
 
     vector<Node> input_nodes;
     input_nodes.push_back(x1);
     input_nodes.push_back(x2);
-    input_nodes.push_back(x3);
     vector<Node> grads = gradients(y, input_nodes);
 
     vector<Node> exe_list;
     exe_list.push_back(y);
     exe_list.push_back(grads[0]);
     exe_list.push_back(grads[1]);
-    exe_list.push_back(grads[2]);
     Executor executor = Executor(exe_list);
 
-    vector<float> x1_val(3, 1);
-    vector<float> x2_val(3, 2);
-    vector<float> x3_val(3, 4);
-    map<int, vector<float>> feed_dic;
+    MatrixXd x1_val(3, 2);
+    MatrixXd x2_val(2, 3);
+    x1_val << 1, 2, 3, 4, 5, 6; // 3 * 2
+    x2_val << 7, 8, 9, 10, 11 ,12; // 2 * 3
+    // res: 3 * 3
+    map<int, MatrixXd> feed_dic;
     feed_dic[x1.hash_code] = x1_val;
     feed_dic[x2.hash_code] = x2_val;
-    feed_dic[x3.hash_code] = x3_val;
-    vector<vector<float>> res = executor.run(feed_dic);
+    vector<MatrixXd> res = executor.run(feed_dic);
     for (int i = 0; i < exe_list.size(); i++) {
-        cout << "Node: " << exe_list[i].name << " value is: " << res[i][0] << endl;
+        cout << "Node: " << exe_list[i].name << " value is: " << endl << res[i] << endl;
     }
+    cout << "Node: x1 * x2" << " value is: " << endl << x1_val * x2_val << endl;
+
 }

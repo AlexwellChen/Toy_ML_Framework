@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cblas.h>
 #include <arm_neon.h>
-#include "vector_ops.h" 
+#include "../include/vector_ops.h"
 
 using namespace std;
 

@@ -11,6 +11,7 @@ using namespace std;
 
 class Layer{
     public:
+
         Layer(int &nodeNum){
             if(nodeNum%4){
                 int d = nodeNum%4;
@@ -55,7 +56,7 @@ class InputLayer : public Layer{
 
 class Dense : public Layer{
     public:
-        Dense(int &inputSize, int &batchSize){
+        Dense(int inputSize, int batchSize){
             Layer(inputSize);
             vector<float> result = random_vector(batchSize*inputSize);
         }
