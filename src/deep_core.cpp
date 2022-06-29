@@ -1,4 +1,4 @@
-#include "deep_core.h"
+#include "../include/deep_core.h"
 #include <algorithm>
 #include <cmath>
 vector <float> softmax (const vector <float>& z, const int dim) {    

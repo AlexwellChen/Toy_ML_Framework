@@ -12,7 +12,7 @@ using namespace std;
 class Layer{
     public:
 
-        Layer(int &nodeNum){
+        Layer(int nodeNum){
             if(nodeNum%4){
                 int d = nodeNum%4;
                 node_number = nodeNum + d; // padding, 使得矩阵边长可以被4整除
