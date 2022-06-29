@@ -128,6 +128,11 @@ public:
         newNode.input.push_back(nodeB);
         newNode.isPlaceHolder = false;
         newNode.name = "MatMul(" + nodeA.name + ", " + nodeB.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
         return newNode;
     }
 
@@ -169,6 +174,11 @@ public:
         newNode.input.push_back(nodeA);
         newNode.input.push_back(nodeB);
         newNode.name = "ReluPrime(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
         newNode.isPlaceHolder = false;
         return newNode;
     }
@@ -202,6 +212,11 @@ public:
         newNode.op = this;
         newNode.input.push_back(nodeA);
         newNode.name = "Relu(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
         newNode.isPlaceHolder = false;
         return newNode;
     }
@@ -237,6 +252,11 @@ public:
         newNode.op = this;
         newNode.input.push_back(nodeA);
         newNode.name = "Zeroslike(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
         newNode.isPlaceHolder = false;
         return newNode;
     }
@@ -270,6 +290,11 @@ public:
         newNode.input.push_back(nodeA);
         newNode.isPlaceHolder = false;
         newNode.name = "Oneslike(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
         return newNode;
     }
 
@@ -305,7 +330,7 @@ Node Variable(string var_name) {
     int i = 0;
     for (hash = var_name.length(), i = 0; i < var_name.length(); i++)
         hash += var_name[i];
-    placeholder_node.hash_code = (hash % 31);
+    placeholder_node.hash_code = hash;
     return placeholder_node;
 }
 
@@ -419,14 +444,16 @@ int main() {
     Node x2 = Variable("x2");
     Node y = x1 * x2;
     Node y1 = relu_op.getNewNode(x1);
+    Node y2 = relu_op.getNewNode(y1);
 
     vector<Node> input_nodes;
     input_nodes.push_back(x1);
+//    input_nodes.push_back(y1);
 //    input_nodes.push_back(x2);
-    vector<Node> grads = gradients(y1, input_nodes);
+    vector<Node> grads = gradients(y2, input_nodes);
 
     vector<Node> exe_list;
-    exe_list.push_back(y1);
+    exe_list.push_back(y2);
     exe_list.push_back(grads[0]);
 //    exe_list.push_back(grads[1]);
     Executor executor = Executor(exe_list);
