@@ -21,6 +21,7 @@ public:
     float const_attr;
     string name;
     int hash_code;
+    MatrixXd res;
     bool isPlaceHolder;
     bool matmul_attr_trans_A;
     bool matmul_attr_trans_B;
@@ -243,6 +244,86 @@ public:
 };
 ReluOp relu_op = ReluOp();
 
+class SoftmaxGradient : public Op {
+public:
+    SoftmaxGradient() = default;
+
+    Node getNewNode(Node &nodeA, Node &nodeB) {
+        Node newNode = Node();
+        newNode.op = this;
+        newNode.input.push_back(nodeA);
+        newNode.input.push_back(nodeB);
+        newNode.isPlaceHolder = false;
+        newNode.name = "SoftmaxGradient(y_predict:" + nodeA.name + ", y_true:" + nodeB.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        newNode.isPlaceHolder = false;
+        return newNode;
+    }
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
+        MatrixXd y = input_vals[1];
+        MatrixXd y_hat = input_vals[0];
+        vector<MatrixXd> res_mat;
+        res_mat.push_back(y_hat - y);
+        return res_mat;
+    }
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
+        return vector<Node>();
+    }
+};
+SoftmaxGradient softmax_gradient = SoftmaxGradient();
+
+class SoftmaxOp : public Op {
+public:
+    SoftmaxOp() = default;
+
+    Node getNewNode(Node &nodeA, Node &nodeB) {
+        Node newNode = Node();
+        newNode.op = this;
+        newNode.input.push_back(nodeA);
+        newNode.input.push_back(nodeB);
+        newNode.isPlaceHolder = false;
+        newNode.name = "Softmax(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        newNode.isPlaceHolder = false;
+        return newNode;
+    }
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
+        MatrixXd m = input_vals[0].array().exp();
+        MatrixXd sum = m.colwise().sum();
+        MatrixXd res_mat(m.rows(), m.cols());
+        for(int i = 0; i < m.rows(); i++)
+            for(int j = 0; j < m.cols(); j++)
+                res_mat(i, j) = m(i, j) / sum(0, j);
+        vector<MatrixXd> res;
+        res.push_back(res_mat);
+        nodeA.res = res_mat;
+        return res;
+    }
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
+        Node newNode = softmax_gradient.getNewNode(node, node.input[1]);
+        vector<Node> res_vec;
+        res_vec.push_back(newNode);
+        return res_vec;
+    }
+
+    ~SoftmaxOp() = default;
+};
+SoftmaxOp softmax_op = SoftmaxOp();
+
+
+
 class ZerosLikeOp : public Op {
 public:
     ZerosLikeOp() = default;
@@ -441,30 +522,29 @@ vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
 
 int main() {
     Node x1 = Variable("x1");
-    Node x2 = Variable("x2");
-    Node y = x1 * x2;
-    Node y1 = relu_op.getNewNode(x1);
-    Node y2 = relu_op.getNewNode(y1);
+    Node y_true = Variable("y_true");
+    Node loss = softmax_op.getNewNode(x1, y_true);
 
     vector<Node> input_nodes;
     input_nodes.push_back(x1);
-//    input_nodes.push_back(y1);
-//    input_nodes.push_back(x2);
-    vector<Node> grads = gradients(y2, input_nodes);
+    vector<Node> grads = gradients(loss, input_nodes);
 
     vector<Node> exe_list;
-    exe_list.push_back(y2);
+    exe_list.push_back(loss);
     exe_list.push_back(grads[0]);
-//    exe_list.push_back(grads[1]);
     Executor executor = Executor(exe_list);
 
     MatrixXd x1_val(3, 2);
-//    MatrixXd x2_val(2, 3);
-    x1_val << -1, 2, -3, 4, -5, 6; // 3 * 2
-//    x2_val << 7, 8, 9, 10, 11, 12; // 2 * 3
-    // res: 3 * 3
+    MatrixXd y_true_val(3, 2);
+    x1_val << 0.3, 0.9,
+              0.9, 0.2,
+              0.4, 0.2; // 3 * 2
+    y_true_val << 0, 0,
+                 0, 1,
+                 1, 0;
     map<int, MatrixXd> feed_dic;
     feed_dic[x1.hash_code] = x1_val;
+    feed_dic[y_true.hash_code] = y_true_val;
 //    feed_dic[x2.hash_code] = x2_val;
     vector<MatrixXd> res = executor.run(feed_dic);
     for (int i = 0; i < exe_list.size(); i++) {
