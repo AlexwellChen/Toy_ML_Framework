@@ -14,6 +14,9 @@ class Node {
 public:
     Node() {
         this->const_attr = 0.0;
+        this->isGradient = false;
+        this->matmul_attr_trans_A = false;
+        this->matmul_attr_trans_B = false;
     }
 
     vector<Node> input;
@@ -25,6 +28,8 @@ public:
     bool isPlaceHolder;
     bool matmul_attr_trans_A;
     bool matmul_attr_trans_B;
+    bool isGradient;
+    vector<int> gradient_hash_code;
 
     virtual Node operator*(Node &nodeB);
 
@@ -77,6 +82,98 @@ public:
 
     ~Placeholders() = default;
 };
+
+class OnesLikeOp : public Op {
+public:
+    OnesLikeOp() = default;
+
+    Node getNewNode(Node &nodeA) {
+        Node newNode = Node();
+        newNode.op = this;
+        newNode.input.push_back(nodeA);
+        newNode.isPlaceHolder = false;
+        newNode.name = "Oneslike(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        return newNode;
+    }
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
+        MatrixXd ones = MatrixXd::Ones(input_vals[0].rows(), input_vals[0].cols());
+        vector<MatrixXd> res;
+        res.push_back(ones);
+        return res;
+    }
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
+        vector<Node> res;
+        Node newNode = Node();
+        newNode.input.push_back(node.input[0]);
+        newNode.name = "Zeroslike(" + node.input[0].name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        newNode.isGradient = true;
+        node.gradient_hash_code.push_back(newNode.hash_code);
+        res.push_back(newNode);
+        return res;
+    }
+
+    ~OnesLikeOp() = default;
+};
+
+OnesLikeOp ones_like_op = OnesLikeOp();
+
+class ZerosLikeOp : public Op {
+public:
+    ZerosLikeOp() = default;
+
+    Node getNewNode(Node &nodeA) {
+        Node newNode = Node();
+        newNode.op = this;
+        newNode.input.push_back(nodeA);
+        newNode.name = "Zeroslike(" + nodeA.name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        newNode.isPlaceHolder = false;
+        return newNode;
+    }
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
+        MatrixXd zeros = MatrixXd::Zero(input_vals[0].rows(), input_vals[0].cols());
+        vector<MatrixXd> res;
+        res.push_back(zeros);
+        return res;
+    }
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override {
+        vector<Node> res;
+        Node newNode = Node();
+        newNode.input.push_back(node.input[0]);
+        newNode.name = "Zeroslike(" + node.input[0].name + ")";
+        int hash = 0;
+        int i = 0;
+        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+            hash += newNode.name[i];
+        newNode.hash_code = hash;
+        newNode.isGradient = true;
+        node.gradient_hash_code.push_back(newNode.hash_code);
+        res.push_back(newNode);
+        return res;
+    }
+
+    ~ZerosLikeOp() = default;
+};
+
+ZerosLikeOp zeros_like_op = ZerosLikeOp();
 
 class MatAddOp : public Op {
 public:
@@ -157,6 +254,10 @@ public:
         vector<Node> res;
         Node newNode_A = getNewNode(output_gradient, node.input[1], false, true);
         Node newNode_B = getNewNode(node.input[0], output_gradient, true, false);
+        newNode_A.isGradient = true;
+        newNode_B.isGradient = true;
+        node.gradient_hash_code.push_back(newNode_A.hash_code);
+        node.gradient_hash_code.push_back(newNode_B.hash_code);
         res.push_back(newNode_A);
         res.push_back(newNode_B);
         return res;
@@ -238,15 +339,18 @@ public:
     vector<Node> gradient(Node &node, Node &output_gradient) override {
         Node newNode = relu_prime_op.getNewNode(node.input[0], output_gradient);
         vector<Node> res;
+        newNode.isGradient = true;
+        node.gradient_hash_code.push_back(newNode.hash_code);
         res.push_back(newNode);
         return res;
     }
 };
+
 ReluOp relu_op = ReluOp();
 
-class SoftmaxGradient : public Op {
+class SoftmaxLoss : public Op {
 public:
-    SoftmaxGradient() = default;
+    SoftmaxLoss() = default;
 
     Node getNewNode(Node &nodeA, Node &nodeB) {
         Node newNode = Node();
@@ -254,7 +358,7 @@ public:
         newNode.input.push_back(nodeA);
         newNode.input.push_back(nodeB);
         newNode.isPlaceHolder = false;
-        newNode.name = "SoftmaxGradient(y_predict:" + nodeA.name + ", y_true:" + nodeB.name + ")";
+        newNode.name = "SoftmaxLoss(y_predict:" + nodeA.name + ", y_true:" + nodeB.name + ")";
         int hash = 0;
         int i = 0;
         for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
@@ -276,7 +380,8 @@ public:
         return vector<Node>();
     }
 };
-SoftmaxGradient softmax_gradient = SoftmaxGradient();
+
+SoftmaxLoss softmaxloss_op = SoftmaxLoss();
 
 class SoftmaxOp : public Op {
 public:
@@ -302,8 +407,8 @@ public:
         MatrixXd m = input_vals[0].array().exp();
         MatrixXd sum = m.colwise().sum();
         MatrixXd res_mat(m.rows(), m.cols());
-        for(int i = 0; i < m.rows(); i++)
-            for(int j = 0; j < m.cols(); j++)
+        for (int i = 0; i < m.rows(); i++)
+            for (int j = 0; j < m.cols(); j++)
                 res_mat(i, j) = m(i, j) / sum(0, j);
         vector<MatrixXd> res;
         res.push_back(res_mat);
@@ -312,94 +417,25 @@ public:
     }
 
     vector<Node> gradient(Node &node, Node &output_gradient) override {
-        Node newNode = softmax_gradient.getNewNode(node, node.input[1]);
+        Node newNodeA = softmaxloss_op.getNewNode(node, node.input[1]);
+        Node newNodeB = zeros_like_op.getNewNode(node.input[1]);
+        newNodeA.isGradient = true;
+        newNodeB.isGradient = true;
+        node.gradient_hash_code.push_back(newNodeA.hash_code); // 所有node中的vector在push back后元素都消失了。
+        node.gradient_hash_code.push_back(newNodeB.hash_code);
         vector<Node> res_vec;
-        res_vec.push_back(newNode);
+        res_vec.push_back(newNodeA);
+        res_vec.push_back(newNodeB);
         return res_vec;
     }
 
     ~SoftmaxOp() = default;
 };
+
 SoftmaxOp softmax_op = SoftmaxOp();
 
 
-
-class ZerosLikeOp : public Op {
-public:
-    ZerosLikeOp() = default;
-
-    Node getNewNode(Node &nodeA) {
-        Node newNode = Node();
-        newNode.op = this;
-        newNode.input.push_back(nodeA);
-        newNode.name = "Zeroslike(" + nodeA.name + ")";
-        int hash = 0;
-        int i = 0;
-        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
-            hash += newNode.name[i];
-        newNode.hash_code = hash;
-        newNode.isPlaceHolder = false;
-        return newNode;
-    }
-
-    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
-        MatrixXd zeros = MatrixXd::Zero(input_vals[0].rows(), input_vals[0].cols());
-        vector<MatrixXd> res;
-        res.push_back(zeros);
-        return res;
-    }
-
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
-        vector<Node> res;
-        Node newNode = Node();
-        newNode.input.push_back(node.input[0]);
-        newNode.name = "Zeroslike(" + node.input[0].name + ")";
-        res.push_back(newNode);
-        return res;
-    }
-
-    ~ZerosLikeOp() = default;
-};
-
-class OnesLikeOp : public Op {
-public:
-    OnesLikeOp() = default;
-
-    Node getNewNode(Node &nodeA) {
-        Node newNode = Node();
-        newNode.op = this;
-        newNode.input.push_back(nodeA);
-        newNode.isPlaceHolder = false;
-        newNode.name = "Oneslike(" + nodeA.name + ")";
-        int hash = 0;
-        int i = 0;
-        for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
-            hash += newNode.name[i];
-        newNode.hash_code = hash;
-        return newNode;
-    }
-
-    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override {
-        MatrixXd ones = MatrixXd::Ones(input_vals[0].rows(), input_vals[0].cols());
-        vector<MatrixXd> res;
-        res.push_back(ones);
-        return res;
-    }
-
-    vector<Node> gradient(Node &node, Node &output_gradient) override {
-        vector<Node> res;
-        Node newNode = Node();
-        newNode.input.push_back(node.input[0]);
-        newNode.name = "Zeroslike(" + node.input[0].name + ")";
-        res.push_back(newNode);
-        return res;
-    }
-
-    ~OnesLikeOp() = default;
-};
-
 Placeholders placeholder_op = Placeholders();
-OnesLikeOp ones_like_op = OnesLikeOp();
 MatMulOp matmul_op = MatMulOp();
 MatAddOp matadd_op = MatAddOp();
 
@@ -439,13 +475,12 @@ void topo_sort_dfs(Node &node, std::unordered_set<int> &visited, vector<Node> &t
     topo_order.push_back(node);
 }
 
-vector<Node> find_topo_sort(vector<Node> &node_list) {
+void find_topo_sort(vector<Node> &node_list, vector<Node> &topo_order) {
     std::unordered_set<int> visited;
-    vector<Node> topo_order;
     for (Node &node: node_list) {
         topo_sort_dfs(node, visited, topo_order);
     }
-    return topo_order;
+//    return topo_order;
 }
 
 Node sum_node_list(vector<Node> &node_list) {
@@ -469,7 +504,8 @@ public:
     ~Executor() = default;
 
     vector<MatrixXd> run(map<int, MatrixXd> &feed_dic) {
-        vector<Node> topo_order = find_topo_sort(this->node_list);
+        vector<Node> topo_order;
+        find_topo_sort(this->node_list, topo_order);
         vector<MatrixXd> input_vals; // 输入
         vector<MatrixXd> output_vals; // 输出
         for (Node node: topo_order) {
@@ -501,10 +537,11 @@ vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
 
     vector<Node> output_node_list;
     output_node_list.push_back(output_node);
-    vector<Node> reverse_topo_sort = find_topo_sort(output_node_list);
+    vector<Node> reverse_topo_sort;
+    find_topo_sort(output_node_list, reverse_topo_sort);
     reverse(reverse_topo_sort.begin(), reverse_topo_sort.end());
 
-    for (Node node: reverse_topo_sort) {
+    for (Node &node: reverse_topo_sort) {
         Node grad = sum_node_list(node_to_output_grads_list[node.hash_code]);
         node_to_output_grad[node.hash_code] = grad;
         vector<Node> input_grads = node.op->gradient(node, grad); // 计算当前节点前驱的梯度
@@ -514,13 +551,15 @@ vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
         }
     }
     vector<Node> grad_node_list;
-    for (Node node: node_list) {
+    for (Node &node: node_list) {
         grad_node_list.push_back(node_to_output_grad[node.hash_code]);
     }
     return grad_node_list;
 }
 
 int main() {
+    // Softmax test
+    cout << "Softmax test:" << endl;
     Node x1 = Variable("x1");
     Node y_true = Variable("y_true");
     Node loss = softmax_op.getNewNode(x1, y_true);
@@ -542,14 +581,49 @@ int main() {
     y_true_val << 0, 0,
                  0, 1,
                  1, 0;
+    cout << "x1_val: " << endl << x1_val << endl;
+    cout << "y_true: " << endl << y_true_val << endl;
     map<int, MatrixXd> feed_dic;
     feed_dic[x1.hash_code] = x1_val;
     feed_dic[y_true.hash_code] = y_true_val;
-//    feed_dic[x2.hash_code] = x2_val;
     vector<MatrixXd> res = executor.run(feed_dic);
     for (int i = 0; i < exe_list.size(); i++) {
         cout << "Node: " << exe_list[i].name << " value is: " << endl << res[i] << endl;
     }
+    cout << "--------------------------------" << endl;
+    //Matmul test
+    cout << "Matmul test:" << endl;
+    Node x2 = Variable("x2");
+    Node x3 = Variable("x3");
+    Node y = x2 * x3;
+    vector<Node> matmul_input_nodes;
+    matmul_input_nodes.push_back(x2);
+    matmul_input_nodes.push_back(x3);
+    vector<Node> matmul_grads = gradients(y, matmul_input_nodes);
+
+    vector<Node> matmul_exe_list;
+    matmul_exe_list.push_back(y);
+    matmul_exe_list.push_back(matmul_grads[0]); // x2_grad
+    matmul_exe_list.push_back(matmul_grads[1]); // x3_grad
+    Executor matmul_executor = Executor(matmul_exe_list);
+
+    MatrixXd x2_val(3, 2);
+    MatrixXd x3_val(2, 1);
+    x2_val << 1, 2,
+            3, 4,
+            5, 6; // 3 * 2
+    x3_val << 1,
+            2;
+    cout << "x2_val: " << endl << x2_val << endl;
+    cout << "x3_val: " << endl << x3_val << endl;
+    map<int, MatrixXd> matmul_feed_dic;
+    matmul_feed_dic[x2.hash_code] = x2_val;
+    matmul_feed_dic[x3.hash_code] = x3_val;
+    vector<MatrixXd> matmul_res = matmul_executor.run(matmul_feed_dic);
+    for (int i = 0; i < matmul_exe_list.size(); i++) {
+        cout << "Node: " << matmul_exe_list[i].name << " value is: " << endl << matmul_res[i] << endl;
+    }
+
 //    cout << "Node: x1 * x2" << " value is: " << endl << x1_val * x2_val << endl;
 
 }
