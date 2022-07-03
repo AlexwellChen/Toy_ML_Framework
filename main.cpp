@@ -608,7 +608,6 @@ void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X
             input_val(i / 784 - randindx, j) = X_train[i + j];
         }
     }
-
     for(unsigned i = randindx*10; i < (randindx+BATCH_SIZE)*10; i += 10){
         for(unsigned j = 0; j < 10; ++j){
             y_true_val(i / 10 - randindx, j) = y_train[i + j];
@@ -630,8 +629,9 @@ void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X
 int main() {
     // Softmax test
 
-    map<int, vector<int>> node_to_gradient;
+    map<int, int> node_to_gradient;
     cout << "3 layers NN test:" << endl;
+
     Node input = Variable("input");
     Node W1 = Variable("W1");
     Node W2 = Variable("W2");
@@ -650,18 +650,19 @@ int main() {
     input_nodes.push_back(W2);
     input_nodes.push_back(W3);
     input_nodes.push_back(y_true);
+    cout << "------------------------------------" << endl;
+    cout << "Building graph..." << endl;
     vector<Node> grads = gradients(y_predict, input_nodes);
+    cout << "Building graph done..." << endl;
 
-    node_to_gradient[W1.hash_code].push_back(grads[1].hash_code);
-    node_to_gradient[W2.hash_code].push_back(grads[2].hash_code);
-    node_to_gradient[W3.hash_code].push_back(grads[3].hash_code);
+
+    node_to_gradient[W1.hash_code] = grads[1].hash_code;
+    node_to_gradient[W2.hash_code] = grads[2].hash_code;
+    node_to_gradient[W3.hash_code] = grads[3].hash_code;
 
     vector<Node> exe_list;
     exe_list.push_back(y_predict);
     exe_list.insert(exe_list.end(), grads.begin(), grads.end());
-//    exe_list.push_back(grads[0]);
-//    exe_list.push_back(grads[1]);
-//    exe_list.push_back(grads[2]);
     Executor executor = Executor(exe_list);
 
     MatrixXd input_val(BATCH_SIZE, 784);
@@ -674,6 +675,7 @@ int main() {
 
     vector<float> X_train;
     vector<float> y_train;
+    cout << "------------------------------------" << endl;
     cout << "Start loading data..." << endl;
     load_data(X_train, y_train);
     cout << "Finish loading data..." << endl;
@@ -683,7 +685,7 @@ int main() {
     feed_dic[W2.hash_code] = W2_val;
     feed_dic[W3.hash_code] = W3_val;
 
-    int iter_ = 0;
+    int iter_;
     cout << "------------------------------------" << endl;
     cout << "START TRAINING" << endl;
     cout << "------------------------------------" << endl;
@@ -697,9 +699,9 @@ int main() {
         vector<MatrixXd> res = executor.run(feed_dic);
 
         // Weight update
-        feed_dic[W1.hash_code] = feed_dic[W1.hash_code] - lr * feed_dic[node_to_gradient[W1.hash_code][0]];
-        feed_dic[W2.hash_code] = feed_dic[W2.hash_code] - lr * feed_dic[node_to_gradient[W2.hash_code][0]];
-        feed_dic[W3.hash_code] = feed_dic[W3.hash_code] - lr * feed_dic[node_to_gradient[W3.hash_code][0]];
+        feed_dic[W1.hash_code] = feed_dic[W1.hash_code] - lr * feed_dic[node_to_gradient[W1.hash_code]];
+        feed_dic[W2.hash_code] = feed_dic[W2.hash_code] - lr * feed_dic[node_to_gradient[W2.hash_code]];
+        feed_dic[W3.hash_code] = feed_dic[W3.hash_code] - lr * feed_dic[node_to_gradient[W3.hash_code]];
 
         // Loss
         if(iter_ % 10 == 0){
