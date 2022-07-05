@@ -54,3 +54,9 @@ cmake-build-debug/Testing/Temporary/LastTest.log
 cmake-build-debug/Toy_ML_Framework
 *.json
 *.o
+cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp
+cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPTryFlag.c
+cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp
+cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.c
+cmake-build-debug/CMakeFiles/FindOpenMP/ompver_CXX.bin
+cmake-build-debug/CMakeFiles/FindOpenMP/ompver_C.bin
