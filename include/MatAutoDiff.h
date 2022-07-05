@@ -3,7 +3,6 @@
 #include <unordered_set>
 #include <map>
 #include "MatOp.h"
-#include <cblas.h>
 #include <vector>
 #include <Eigen/Dense>
 

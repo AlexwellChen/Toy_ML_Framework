@@ -96,6 +96,21 @@ void NN_test(){
     }
 }
 
+class Layer {
+public:
+    Layer(int num){
+        this->node_num = num;
+    }
+    int node_num;
+
+    ~Layer() = default;
+};
+
+class Model {
+public:
+    vector<Layer> 
+};
+
 int main() {
     map<int, int> node_to_gradient;
     cout << "3 layers NN test:" << endl;

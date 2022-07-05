@@ -55,6 +55,5 @@ cmake-build-debug/Toy_ML_Framework
 CMakeLists.txt
 nnetwork.dSYM/Contents/Info.plist
 nnetwork.dSYM/Contents/Resources/DWARF/nnetwork
-Toy_ML_Framework.code-workspace
 *.json
 *.o
