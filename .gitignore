@@ -52,8 +52,5 @@ cmake-build-debug/CMakeFiles/TargetDirectories.txt
 cmake-build-debug/CMakeFiles/Toy_ML_Framework.dir/main.cpp.o
 cmake-build-debug/Testing/Temporary/LastTest.log
 cmake-build-debug/Toy_ML_Framework
-CMakeLists.txt
-nnetwork.dSYM/Contents/Info.plist
-nnetwork.dSYM/Contents/Resources/DWARF/nnetwork
 *.json
 *.o
