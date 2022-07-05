@@ -77,7 +77,7 @@ void NN_test(){
     vector<float> y_train;
     cout << "------------------------------------" << endl;
     cout << "Start loading data..." << endl;
-    load_data(X_train, y_train, training_data);
+    load_data(X_train, y_train, training_data, BATCH_SIZE);
     cout << "Finish loading data..." << endl;
 
     map<int, MatrixXd> feed_dic;

@@ -98,7 +98,7 @@ void Model::compile(){
 void Model::loadData(string src){
     cout << "------------------------------------" << endl;
     cout << "Start loading data..." << endl;
-    load_data(this->X_train, this->y_train, src);
+    load_data(this->X_train, this->y_train, src, batch_size);
     cout << "Finish loading data..." << endl;
 }
 
@@ -123,10 +123,10 @@ void Model::run(){
 
         // Loss
         if (iter_ % 10 == 0) {
+//            cout << "------------------------------------" << endl;
             MatrixXd loss_m = feed_dic[sequential.back().output.hash_code] - feed_dic[sequential.back().y_true.hash_code];
-            cout << "Iteration: " << iter_ << ", Loss: " << loss_m.array().square().sum() / (batch_size * 10)
-            << endl;
-            cout << "------------------------------------" << endl;
+            cout << "Iteration: " << iter_ << ", Loss: " << loss_m.array().square().sum() / (batch_size * 10) << "\r" << flush;
+
         }
     }
 }

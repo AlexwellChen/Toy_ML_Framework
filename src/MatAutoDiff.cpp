@@ -6,9 +6,7 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <random>
-
-#define BATCH_SIZE 10
-#define ITER 100
+#include <omp.h>
 
 using namespace Eigen;
 using namespace std;
@@ -106,7 +104,7 @@ vector<MatrixXd> ZerosLikeOp::compute(Node &nodeA, vector<MatrixXd> &input_vals)
     return res;
 }
 
-vector<Node> ZerosLikeOp::gradient(Node &node, Node &output_gradient)  {
+vector<Node> ZerosLikeOp::gradient(Node &node, Node &output_gradient) {
     vector<Node> res;
     Node newNode = Node();
     newNode.input.push_back(node.input[0]);
@@ -175,6 +173,7 @@ Node MatMulOp::getNewNode(Node &nodeA, Node &nodeB, bool trans_A, bool trans_B) 
 
 vector<MatrixXd> MatMulOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     MatrixXd res_mat;
+    omp_set_num_threads(4);
     if (nodeA.matmul_attr_trans_A && nodeA.matmul_attr_trans_B) {
         res_mat = input_vals[0].transpose() * input_vals[1].transpose();
     } else if (!nodeA.matmul_attr_trans_A && nodeA.matmul_attr_trans_B) {
@@ -189,7 +188,7 @@ vector<MatrixXd> MatMulOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     return res;
 }
 
-vector<Node> MatMulOp::gradient(Node &node, Node &output_gradient)  {
+vector<Node> MatMulOp::gradient(Node &node, Node &output_gradient) {
     vector<Node> res;
     Node newNodeA = getNewNode(output_gradient, node.input[1], false, true);
     Node newNodeB = getNewNode(node.input[0], output_gradient, true, false);
@@ -250,12 +249,13 @@ Node ReluOp::getNewNode(Node &nodeA) {
 
 vector<MatrixXd> ReluOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     MatrixXd res_mat(input_vals[0].rows(), input_vals[0].cols());
+#pragma omp parallel for
     for (int i = 0; i < input_vals[0].rows(); ++i)
-    for (int j = 0; j < input_vals[0].cols(); ++j) {
-    if (input_vals[0](i, j) <= 0) {
-    res_mat(i, j) = 0.0;
-    } else res_mat(i, j) = input_vals[0](i, j);
-    }
+        for (int j = 0; j < input_vals[0].cols(); ++j) {
+            if (input_vals[0](i, j) <= 0) {
+                res_mat(i, j) = 0.0;
+            } else res_mat(i, j) = input_vals[0](i, j);
+        }
     vector<MatrixXd> res;
     res.push_back(res_mat);
     return res;
@@ -321,8 +321,8 @@ vector<MatrixXd> SoftmaxOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     MatrixXd sum = m.colwise().sum();
     MatrixXd res_mat(m.rows(), m.cols());
     for (int i = 0; i < m.rows(); i++)
-    for (int j = 0; j < m.cols(); j++)
-    res_mat(i, j) = m(i, j) / sum(0, j);
+        for (int j = 0; j < m.cols(); j++)
+            res_mat(i, j) = m(i, j) / sum(0, j);
     vector<MatrixXd> res;
     res.push_back(res_mat);
     nodeA.res = res_mat;
@@ -393,7 +393,6 @@ Node sum_node_list(vector<Node> &node_list) {
 }
 
 
-
 vector<Node> gradients(Node &output_node, vector<Node> &node_list) {
     map<int, vector<Node>> node_to_output_grads_list;
     vector<Node> ones;
@@ -435,7 +434,7 @@ vector<string> split(const string &s, char delim) {
     return tokens;
 }
 
-vector <float> operator/(const vector <float>& m2, const float m1){
+vector<float> operator/(const vector<float> &m2, const float m1) {
 
     /*  Returns the product of a float and a vectors (elementwise multiplication).
      Inputs:
@@ -445,37 +444,33 @@ vector <float> operator/(const vector <float>& m2, const float m1){
      */
 
     const unsigned long VECTOR_SIZE = m2.size();
-    vector <float> product (VECTOR_SIZE);
+    vector<float> product(VECTOR_SIZE);
 
-    for (unsigned i = 0; i != VECTOR_SIZE; ++i){
+    for (unsigned i = 0; i != VECTOR_SIZE; ++i) {
         product[i] = m2[i] / m1;
     };
 
     return product;
 }
 
-void load_data(vector<float> &X_train, vector<float> &y_train, string src){
+void load_data(vector<float> &X_train, vector<float> &y_train, string src, int batch_size) {
     string line;
     vector<string> line_v;
-    int randindx = rand() % (42000-BATCH_SIZE);
-    ifstream myfile (src);
-    if (myfile.is_open())
-    {
-        while ( getline (myfile,line) )
-        {
+    int randindx = rand() % (42000 - batch_size);
+    ifstream myfile(src);
+    if (myfile.is_open()) {
+        while (getline(myfile, line)) {
             line_v = split(line, '\t');
-            int digit = strtof((line_v[0]).c_str(),0);
+            int digit = strtof((line_v[0]).c_str(), 0);
             for (unsigned i = 0; i < 10; ++i) {
-                if (i == digit)
-                {
+                if (i == digit) {
                     y_train.emplace_back(1.);
-                }
-                else y_train.emplace_back(0.);
+                } else y_train.emplace_back(0.);
             }
 
             int size = static_cast<int>(line_v.size());
             for (unsigned i = 1; i < size; ++i) {
-                X_train.emplace_back(strtof((line_v[i]).c_str(),0));
+                X_train.emplace_back(strtof((line_v[i]).c_str(), 0));
             }
         }
         X_train = X_train / 255.0;
@@ -483,19 +478,20 @@ void load_data(vector<float> &X_train, vector<float> &y_train, string src){
     }
 }
 
-void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train, int batch_size){
+void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train,
+                     int batch_size) {
 
     std::random_device rd;
     std::mt19937 mt(rd());
-    std::uniform_real_distribution<int> dist(0, 42000*10);
-    int rand_indx = dist(mt) % (42000-batch_size);
-    for(unsigned i = rand_indx*784; i < (rand_indx+batch_size)*784; i += 784){
-        for(unsigned j = 0; j < 784; ++j){
+    std::uniform_real_distribution<int> dist(0, 42000 * 10);
+    int rand_indx = dist(mt) % (42000 - batch_size);
+    for (unsigned i = rand_indx * 784; i < (rand_indx + batch_size) * 784; i += 784) {
+        for (unsigned j = 0; j < 784; ++j) {
             input_val(i / 784 - rand_indx, j) = X_train[i + j];
         }
     }
-    for(unsigned i = rand_indx*10; i < (rand_indx+batch_size)*10; i += 10){
-        for(unsigned j = 0; j < 10; ++j){
+    for (unsigned i = rand_indx * 10; i < (rand_indx + batch_size) * 10; i += 10) {
+        for (unsigned j = 0; j < 10; ++j) {
             y_true_val(i / 10 - rand_indx, j) = y_train[i + j];
         }
     }

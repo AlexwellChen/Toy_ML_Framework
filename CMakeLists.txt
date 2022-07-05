@@ -10,7 +10,9 @@ set(IDIR include)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g")
+
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -fopenmp")
 
 add_executable(Toy_ML_Framework main.cpp include/MatOp.h src/MatAutoDiff.cpp include/MatAutoDiff.h include/MatAutoDiff.h example.cpp src/Model.cpp include/Model.h)
 
@@ -20,3 +22,8 @@ add_executable(Toy_ML_Framework main.cpp include/MatOp.h src/MatAutoDiff.cpp inc
 #target_link_libraries(Toy_ML_Framework -lblas)
 
 include_directories (${EIGEN_INC_DIR})
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(Toy_ML_Framework PUBLIC OpenMP::OpenMP_CXX)
+endif()

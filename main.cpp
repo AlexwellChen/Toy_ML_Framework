@@ -3,11 +3,14 @@
 #include "include/Model.h"
 #include <Eigen/Dense>
 #include <utility>
+#include <Eigen/Core>
+
 
 using namespace std;
 using namespace Eigen;
 
 int main() {
+    Eigen::initParallel();
     string training_data = "../train.txt";
     Model model = Model(32, 100);
 
