@@ -36,6 +36,7 @@ Node sum_node_list(vector<Node> &node_list);
 class Executor {
 public:
     vector<Node> node_list;
+    Executor() = default;
 
     Executor(vector<Node> &eval_node_list);
 
@@ -161,5 +162,5 @@ public:
 
 Node Variable(string var_name);
 vector<Node> gradients(Node &output_node, vector<Node> &node_list);
-void load_data(vector<float> &X_train, vector<float> &y_train);
-void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train);
+void load_data(vector<float> &X_train, vector<float> &y_train, string src);
+void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train, int batch_size);

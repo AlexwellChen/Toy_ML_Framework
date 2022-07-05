@@ -5,6 +5,7 @@
 #include "../include/MatAutoDiff.h"
 #include <vector>
 #include <Eigen/Dense>
+#include <random>
 
 #define BATCH_SIZE 10
 #define ITER 100
@@ -453,11 +454,11 @@ vector <float> operator/(const vector <float>& m2, const float m1){
     return product;
 }
 
-void load_data(vector<float> &X_train, vector<float> &y_train){
+void load_data(vector<float> &X_train, vector<float> &y_train, string src){
     string line;
     vector<string> line_v;
     int randindx = rand() % (42000-BATCH_SIZE);
-    ifstream myfile ("/Users/alexwell/Desktop/Toy_ML_Framework/train.txt");
+    ifstream myfile (src);
     if (myfile.is_open())
     {
         while ( getline (myfile,line) )
@@ -482,16 +483,20 @@ void load_data(vector<float> &X_train, vector<float> &y_train){
     }
 }
 
-void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train){
-    int randindx = rand() % (42000-BATCH_SIZE);
-    for(unsigned i = randindx*784; i < (randindx+BATCH_SIZE)*784; i += 784){
+void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train, int batch_size){
+
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_real_distribution<int> dist(0, 42000*10);
+    int rand_indx = dist(mt) % (42000-batch_size);
+    for(unsigned i = rand_indx*784; i < (rand_indx+batch_size)*784; i += 784){
         for(unsigned j = 0; j < 784; ++j){
-            input_val(i / 784 - randindx, j) = X_train[i + j];
+            input_val(i / 784 - rand_indx, j) = X_train[i + j];
         }
     }
-    for(unsigned i = randindx*10; i < (randindx+BATCH_SIZE)*10; i += 10){
+    for(unsigned i = rand_indx*10; i < (rand_indx+batch_size)*10; i += 10){
         for(unsigned j = 0; j < 10; ++j){
-            y_true_val(i / 10 - randindx, j) = y_train[i + j];
+            y_true_val(i / 10 - rand_indx, j) = y_train[i + j];
         }
     }
 }

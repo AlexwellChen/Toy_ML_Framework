@@ -91,3 +91,10 @@ Executor has a run function to execute the entire computational graph as well as
 We already have all the nodes when we construct the executor instance, we just need to sort them topologically to get the node traversal list. Since we have already constructed the gradient backpropagation graph, we are actually combining the two graphs into one for topological sorting.
 
 In the forward propagation, we calculate the value of each node, and then we enter the backpropagation graph and still use the compute function to calculate the value of the current node according to the corresponding rules, at this time we calculate the gradient value of the corresponding gradient expression node. Finally, we return the values of the nodes [y, x1_grad, x2_grad, x3_grad] that we need to the main function.
+
+### Todo List
+
+* Tensorflow/Keras like User Interface
+* CUDA Operators
+* Convolution Operators
+* Computation graph serialization and deserialization
