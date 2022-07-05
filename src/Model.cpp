@@ -95,10 +95,11 @@ void Model::compile(){
     cout << "Build Executor done..." << endl;
 }
 
-void Model::loadData(string src){
+void Model::loadData(vector<float> &X_train_, vector<float> y_train_){
     cout << "------------------------------------" << endl;
     cout << "Start loading data..." << endl;
-    load_data(this->X_train, this->y_train, src, batch_size);
+    this->X_train = X_train_;
+    this->y_train = y_train_;
     cout << "Finish loading data..." << endl;
 }
 

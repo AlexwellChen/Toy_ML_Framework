@@ -453,10 +453,9 @@ vector<float> operator/(const vector<float> &m2, const float m1) {
     return product;
 }
 
-void load_data(vector<float> &X_train, vector<float> &y_train, string src, int batch_size) {
+void load_data(vector<float> &X_train, vector<float> &y_train, string src) {
     string line;
     vector<string> line_v;
-    int randindx = rand() % (42000 - batch_size);
     ifstream myfile(src);
     if (myfile.is_open()) {
         while (getline(myfile, line)) {

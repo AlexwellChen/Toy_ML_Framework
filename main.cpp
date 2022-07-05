@@ -12,6 +12,14 @@ using namespace Eigen;
 int main() {
     Eigen::initParallel();
     string training_data = "../train.txt";
+    vector<float> X;
+    vector<float> y;
+
+    load_data(X, y, training_data);
+
+    // Todo: training set and test set split; predict func; accuracy;
+
+
     Model model = Model(32, 100);
 
     model.Input(784, "input layer");
@@ -20,7 +28,7 @@ int main() {
     model.Output(10, "Output layer");
 
     model.compile();
-    model.loadData(training_data);
+    model.loadData(X, y);
     model.run();
 }
 

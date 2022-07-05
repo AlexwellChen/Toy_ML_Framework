@@ -54,7 +54,7 @@ public:
 
     void compile();
 
-    void loadData(string src);
+    void loadData(vector<float> &X_train_, vector<float> y_train_);
 
     void run();
 
