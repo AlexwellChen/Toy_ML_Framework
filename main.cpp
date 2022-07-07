@@ -15,16 +15,17 @@ int main() {
     vector<float> X;
     vector<float> y;
 
+    cout << "------------------------------------" << endl;
+    cout << "Loading data..." << endl;
     load_data(X, y, training_data);
-
-    // Todo: training set and test set split; predict func; accuracy;
-
+    cout << "Finish loading data..." << endl;
 
     Model model = Model(32, 100);
 
     model.Input(784, "input layer");
     model.Dense(128, "Hidden layer 1", "relu");
     model.Dense(64, "Hidden layer 2", "relu");
+    model.Dense(10, "Hidden layer 3", "none");
     model.Output(10, "Output layer");
 
     model.compile();

@@ -16,7 +16,11 @@ Layer::Layer(int layer_shape, const string& layer_name, Layer &previous_layer, c
     this->shape = layer_shape;
     this->input_node = Variable(std::move(layer_name + " weights"));
     this->layer = previous_layer.output * input_node;
-    this->output = relu_op.getNewNode(this->layer);
+    if(activation == "relu"){
+        this->output = relu_op.getNewNode(this->layer);
+    }else{
+        this->output = this->layer;
+    }
     matrix_weight = MatrixXd::Random(previous_layer.shape,layer_shape);
 }
 
@@ -96,11 +100,8 @@ void Model::compile(){
 }
 
 void Model::loadData(vector<float> &X_train_, vector<float> y_train_){
-    cout << "------------------------------------" << endl;
-    cout << "Start loading data..." << endl;
     this->X_train = X_train_;
     this->y_train = y_train_;
-    cout << "Finish loading data..." << endl;
 }
 
 void Model::run(){
@@ -124,7 +125,6 @@ void Model::run(){
 
         // Loss
         if (iter_ % 10 == 0) {
-//            cout << "------------------------------------" << endl;
             MatrixXd loss_m = feed_dic[sequential.back().output.hash_code] - feed_dic[sequential.back().y_true.hash_code];
             cout << "Iteration: " << iter_ << ", Loss: " << loss_m.array().square().sum() / (batch_size * 10) << "\r" << flush;
 
