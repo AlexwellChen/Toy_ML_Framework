@@ -9,22 +9,27 @@ using namespace std;
 
 class Layer {
 public:
+    // public attribute
     int shape;
     Node input_node;
     Node layer;
     Node output;
-    Node y_true;
-    Node input;
     Node grad;
     int grad_node_hash;
     MatrixXd matrix_weight;
+
+    // input layer
+    Node input;
+
+    //output layer
+    Node y_true;
     MatrixXd y_true_val;
 
-    Layer(int layer_shape, const string& layer_name, Layer &previous_layer, const string& activation);
+    Layer(int layer_shape, const string& layer_name, Layer &previous_layer, const string& activation); // Dense layer
 
-    Layer(int input_shape, string input_name, int batch_size);
+    Layer(int input_shape, string input_name, int batch_size); // Input layer
 
-    Layer(int layer_shape, const string& layer_name, Layer &previous_layer, int batch_size);
+    Layer(int layer_shape, const string& layer_name, Layer &previous_layer, int batch_size); // Output layer
 
     ~Layer() = default;
 };

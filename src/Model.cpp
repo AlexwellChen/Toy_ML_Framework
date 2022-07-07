@@ -1,5 +1,4 @@
 #include <iostream>
-//#include "../include/MatAutoDiff.h"
 #include "../include/Model.h"
 #include <Eigen/Dense>
 #include <utility>
