@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <map>
 #include "../include/MatAutoDiff.h"
+#include "../include/Conv.h"
 #include <vector>
 #include <Eigen/Dense>
 #include <random>
@@ -270,6 +271,35 @@ vector<Node> ReluOp::gradient(Node &node, Node &output_gradient) {
 
 ReluOp relu_op = ReluOp();
 
+Node MaxPoolingOp::getNewNode(Node &nodeA, const int filter_H, const int filter_W, const int stride) {
+    Node newNode = Node();
+    newNode.op = this;
+    newNode.input.push_back(nodeA);
+    newNode.name = "MaxPooling(" + nodeA.name + ")";
+    newNode.filter_W = filter_W;
+    newNode.filter_H = filter_H;
+    newNode.stride = stride;
+    int hash = 0;
+    int i = 0;
+    for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+        hash += newNode.name[i];
+    newNode.hash_code = hash;
+    newNode.isPlaceHolder = false;
+    return newNode;
+}
+
+vector<MatrixXd> MaxPoolingOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
+    vector<MatrixXd> res;
+    for(MatrixXd &matrix : input_vals){
+        res.emplace_back(MaxPooling2D(matrix, nodeA.filter_H, nodeA.filter_W, nodeA.stride, nodeA.img_H, nodeA.img_W));
+    }
+    return std::move(res);
+}
+
+vector<Node> MaxPoolingOp::gradient(Node &node, Node &output_gradient) {
+
+}
+
 Node SoftmaxGradient::getNewNode(Node &nodeA, Node &nodeB) {
     Node newNode = Node();
     newNode.op = this;
@@ -522,3 +552,4 @@ vector<MatrixXd> Executor::run(map<int, MatrixXd> &feed_dic) {
     }
     return output_vals;
 }
+

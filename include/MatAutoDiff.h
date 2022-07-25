@@ -22,6 +22,13 @@ public:
     bool matmul_attr_trans_A;
     bool matmul_attr_trans_B;
 
+    // Conv and Pooling kernel parameters
+    int filter_H;
+    int filter_W;
+    int stride;
+    int img_H;
+    int img_W;
+
     virtual Node operator*(Node &nodeB);
 
     virtual Node operator+(Node &nodeB);
@@ -158,6 +165,19 @@ public:
     vector<Node> gradient(Node &node, Node &output_gradient) override;
 
     ~MatAddOp() = default;
+};
+
+class MaxPoolingOp : public Op {
+public:
+    MaxPoolingOp() = default;
+
+    Node getNewNode(Node &nodeA, const int filter_H, const int filter_W, const int stride);
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override;
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override;
+
+    ~MaxPoolingOp() = default;
 };
 
 Node Variable(string var_name);

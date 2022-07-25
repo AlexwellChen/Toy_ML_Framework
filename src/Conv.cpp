@@ -1,10 +1,4 @@
-#include <iostream>
-#include <Eigen/Dense>
-#include <utility>
-#include <Eigen/Core>
-#include <vector>
-#include <utility>
-
+#include "../include/Conv.h"
 using namespace std;
 using namespace Eigen;
 
@@ -13,7 +7,7 @@ using namespace Eigen;
  * kernel也按照NCHW分布，最外层vector存储卷积核，Matrix存储对应的卷积核
  * 为了简单起见，仅实现单通道卷积，C=1
  */
-vector<MatrixXd> img2col2D(const MatrixXd &input, const vector<MatrixXd> &kernels, const int &kernel_H, const int &kernel_W, const int &paddle, const int &stride){
+MatrixXd img2col2D(const MatrixXd &input, const vector<MatrixXd> &kernels, const int &kernel_H, const int &kernel_W, const int &paddle, const int &stride){
     vector<MatrixXd> feature_maps;
     long img_H = input.rows();
     long img_W = input.cols();
@@ -60,56 +54,65 @@ vector<MatrixXd> img2col2D(const MatrixXd &input, const vector<MatrixXd> &kernel
 
     // 复原feature map
     MatrixXd feature_matrix = input_matrix * kernel_matrix;
-    int feature_H = int(paddle_img.rows()) - kernel_H + 1;
-    int feature_W = int(paddle_img.cols()) - kernel_W + 1;
-    for(int i = 0; i < kernel_nums; ++i){
-        MatrixXd feature = feature_matrix.col(i);
-        feature.resize(feature_H, feature_W);
-        feature_maps.emplace_back(feature);
-    }
-    return std::move(feature_maps);
+//    int feature_H = int(paddle_img.rows()) - kernel_H + 1;
+//    int feature_W = int(paddle_img.cols()) - kernel_W + 1;
+//    for(int i = 0; i < kernel_nums; ++i){
+//        MatrixXd feature = feature_matrix.col(i);
+//        feature.resize(feature_H, feature_W);
+//        feature_maps.emplace_back(feature);
+//    }
+    return std::move(feature_matrix);
 }
 
-MatrixXd MaxPooling2D(const MatrixXd &input, const int filter_H, const int filter_W, const int stride){
-    const int img_H = int(input.rows());
-    const int img_W = int(input.cols());
+MatrixXd MaxPooling2D(const MatrixXd &input, const int filter_H, const int filter_W, const int stride, const int img_H, const int img_W){
+    cout << "Feature matrix:" << endl;
+    cout << input << endl;
+    cout << "---------------------------" << endl;
+
     const int pooling_H = (img_H - filter_H)/stride + 1;
     const int pooling_W = (img_W - filter_W)/stride + 1;
-    MatrixXd pooling_img(pooling_H, pooling_W);
+    MatrixXd pooling_res(pooling_H * pooling_W, input.cols());
     vector<pair<int, int>> pooling_loc(pooling_H * pooling_W);
-    for(int i = 0; i < img_H; i += stride){
-        for(int j = 0; j < img_W; j += stride){
-            int pooling_row;
-            int pooling_col;
-            float max_val = input.block(i, j, filter_H, filter_W).maxCoeff(&pooling_row, &pooling_col);
-            pooling_img(i/2, j/2) = max_val;
-            pooling_loc[i/2 * pooling_H + j/2] = pair<int, int>(pooling_row, pooling_col);
+    for(int k = 0; k < input.cols(); ++k){
+        MatrixXd feature = input.col(k);
+        feature.resize(img_H, img_W);
+        feature.transposeInPlace(); // eigen默认是col major存储，因此在resize的时候是先填列再填行，但是我们实际的矩阵是先填行再填列的，需要转置后使用
+        for(int i = 0; i < img_H; i += stride){
+            for(int j = 0; j < img_W; j += stride){
+                int pooling_row;
+                int pooling_col;
+                float max_val = feature.block(i, j, filter_H, filter_W).maxCoeff(&pooling_row, &pooling_col);
+                pooling_res(i/2 * filter_W + j/2, k) = max_val;
+                pooling_loc[i/2 * pooling_H + j/2] = pair<int, int>(pooling_row, pooling_col);
+            }
         }
     }
-    return std::move(pooling_img);
+    cout << "Pooling res matrix:" << endl;
+    cout << pooling_res << endl;
+
+    return std::move(pooling_res);
 }
 
 int main(){
-    MatrixXd input_img(10, 10);
-    input_img = MatrixXd::Random(10, 10);
+    MatrixXd input_img(4, 4);
+    input_img << 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4;
+
     cout << "Original image:" << endl;
     cout << input_img << endl;
-//    vector<MatrixXd> kernels;
-//    int kernel_num = 8;
-//    for(int i = 0; i < kernel_num; ++i){
-//        MatrixXd kernel;
-//        kernel = MatrixXd::Random(3, 3);
-//        kernels.emplace_back(kernel);
-//    }
-//    cout << "Original image:" << endl;
-//    cout << input_img << endl;
-//    vector<MatrixXd> feature_maps = img2col2D(input_img, kernels, 3, 3, 0, 1);
+    vector<MatrixXd> kernels;
+    int kernel_num = 4;
+    for(int i = 0; i < kernel_num; ++i){
+        MatrixXd kernel;
+        kernel = MatrixXd::Random(3, 3);
+        kernels.emplace_back(kernel);
+    }
+    MatrixXd feature_matrix = img2col2D(input_img, kernels, 3, 3, 1, 1);
 //    cout << "Feature map:" << endl;
 //    for(MatrixXd &feature : feature_maps){
 //        cout << "----------------------" << endl;
 //        cout << feature << endl;
 //    }
     cout << "Pooling image:" << endl;
-    MatrixXd pooling_img = MaxPooling2D(input_img, 2, 2, 2);
-    cout << pooling_img << endl;
+    MatrixXd pooling_img = MaxPooling2D(feature_matrix, 2, 2, 2, 4, 4);
+//    cout << pooling_img << endl;
 }
