@@ -60,3 +60,4 @@ cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp
 cmake-build-debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.c
 cmake-build-debug/CMakeFiles/FindOpenMP/ompver_CXX.bin
 cmake-build-debug/CMakeFiles/FindOpenMP/ompver_C.bin
+.idea/inspectionProfiles/Project_Default.xml
