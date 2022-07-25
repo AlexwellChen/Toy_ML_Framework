@@ -14,7 +14,11 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -fopenmp")
 
-add_executable(Toy_ML_Framework main.cpp include/MatOp.h src/MatAutoDiff.cpp include/MatAutoDiff.h include/MatAutoDiff.h src/Model.cpp include/Model.h)
+# 执行main.cpp
+#add_executable(Toy_ML_Framework main.cpp include/MatOp.h src/MatAutoDiff.cpp include/MatAutoDiff.h include/MatAutoDiff.h src/Model.cpp include/Model.h)
+
+# 执行img2col
+add_executable(Toy_ML_Framework include/MatOp.h src/MatAutoDiff.cpp include/MatAutoDiff.h include/MatAutoDiff.h src/Model.cpp include/Model.h img2col_conv.cpp)
 
 # 添加cblas
 #include_directories (${BLAS_INC_DIR})

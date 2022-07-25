@@ -228,7 +228,7 @@ vector<MatrixXd> ReluPrimeOp::compute(Node &nodeA, vector<MatrixXd> &input_vals)
 }
 
 vector<Node> ReluPrimeOp::gradient(Node &node, Node &output_gradient) {
-    return vector<Node>(); // No need to implement.
+    return {}; // No need to implement.
 }
 
 ReluPrimeOp relu_prime_op = ReluPrimeOp();
