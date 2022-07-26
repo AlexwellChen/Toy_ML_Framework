@@ -6,8 +6,11 @@
 #include "../include/Conv.h"
 #include <vector>
 #include <Eigen/Dense>
-#include <random>
+#include <cstdlib>
+#include <ctime>
 #include <omp.h>
+
+#define random(x) rand()%(x)
 
 using namespace Eigen;
 using namespace std;
@@ -184,6 +187,10 @@ vector<MatrixXd> MatMulOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     } else {
         res_mat = input_vals[0] * input_vals[1];
     }
+#pragma omp parallel for
+    for(int i = 0; i < res_mat.cols(); ++i){
+        res_mat.col(i).normalize();
+    }
     vector<MatrixXd> res;
     res.push_back(res_mat);
     return res;
@@ -343,7 +350,7 @@ vector<MatrixXd> MaxPoolingOp::compute(Node &nodeA, vector<MatrixXd> &input_vals
 }
 
 vector<Node> MaxPoolingOp::gradient(Node &node, Node &output_gradient) {
-    Node newNode = maxpooling_prime_op.getNewNode(output_gradient, node.img_H, node.img_W);
+    Node newNode = maxpooling_prime_op.getNewNode(node.input[0], node.img_H, node.img_W);
     vector<Node> res;
     res.push_back(newNode);
     return res;
@@ -405,6 +412,8 @@ vector<MatrixXd> SoftmaxOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     vector<MatrixXd> res;
     res.push_back(res_mat);
     nodeA.res = res_mat;
+//    cout << "Softmax res:" << endl;
+//    cout << res_mat << endl;
     return res;
 }
 
@@ -559,10 +568,7 @@ void load_data(vector<float> &X_train, vector<float> &y_train, string src) {
 void read_batch_data(MatrixXd &input_val, MatrixXd &y_true_val, vector<float> &X_train, vector<float> &y_train,
                      int batch_size) {
 
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_real_distribution<int> dist(0, 42000 * 10);
-    int rand_indx = dist(mt) % (42000 - batch_size);
+    int rand_indx = random(42000 - batch_size);
     for (unsigned i = rand_indx * 784; i < (rand_indx + batch_size) * 784; i += 784) {
         for (unsigned j = 0; j < 784; ++j) {
             input_val(i / 784 - rand_indx, j) = X_train[i + j];

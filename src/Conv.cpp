@@ -120,34 +120,33 @@ void MaxPoolingPrime(const int img_H, const int img_W, const MatrixXd &input, co
     cout << mat << endl;
 }
 
-int main(){
-    MatrixXd input_img(4, 4);
-    input_img << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
-
-    cout << "Original image:" << endl;
-    cout << input_img << endl;
-    vector<MatrixXd> kernels;
-    int kernel_num = 4;
-    for(int i = 0; i < kernel_num; ++i){
-        MatrixXd kernel;
-        kernel = MatrixXd::Random(3, 3);
-        kernels.emplace_back(kernel);
-    }
-    MatrixXd feature_matrix = img2col2D(input_img, kernels, 3, 3, 1, 1);
-    vector<vector<pair<int, int>>> pooling_loc;
-    vector<pair<int, int>> temp(feature_matrix.cols());
-    pooling_loc.resize(2 * 2, temp);
-    cout << "Pooling image:" << endl;
-    MatrixXd pooling_img = MaxPooling2D(feature_matrix,
-                                        2, 2, 2,
-                                        4, 4,
-                                        pooling_loc);
-    cout << pooling_img << endl;
-    MatrixXd pooling_diff(2 * 2, 4);
-    pooling_diff << 0.1, 0.5, 0.04, -0.5,
-                    0.2, 0.6, 0.03, -0.2,
-                    0.3, 0.7, 0.02, -0.4,
-                    0.4, 0.8, 0.01, -0.7;
-    MaxPoolingPrime(4, 4, pooling_diff, pooling_loc);
-
-}
+//int main(){
+//    MatrixXd input_img(4, 4);
+//    input_img << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
+//
+//    cout << "Original image:" << endl;
+//    cout << input_img << endl;
+//    vector<MatrixXd> kernels;
+//    int kernel_num = 4;
+//    for(int i = 0; i < kernel_num; ++i){
+//        MatrixXd kernel;
+//        kernel = MatrixXd::Random(3, 3);
+//        kernels.emplace_back(kernel);
+//    }
+//    MatrixXd feature_matrix = img2col2D(input_img, kernels, 3, 3, 1, 1);
+//    vector<vector<pair<int, int>>> pooling_loc;
+//    vector<pair<int, int>> temp(feature_matrix.cols());
+//    pooling_loc.resize(2 * 2, temp);
+//    cout << "Pooling image:" << endl;
+//    MatrixXd pooling_img = MaxPooling2D(feature_matrix,
+//                                        2, 2, 2,
+//                                        4, 4,
+//                                        pooling_loc);
+//    cout << pooling_img << endl;
+//    MatrixXd pooling_diff(2 * 2, 4);
+//    pooling_diff << 0.1, 0.5, 0.04, -0.5,
+//                    0.2, 0.6, 0.03, -0.2,
+//                    0.3, 0.7, 0.02, -0.4,
+//                    0.4, 0.8, 0.01, -0.7;
+//    MaxPoolingPrime(4, 4, pooling_diff, pooling_loc);
+//}

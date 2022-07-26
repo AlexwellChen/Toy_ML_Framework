@@ -123,10 +123,9 @@ void Model::run(){
         }
 
         // Loss
-        if (iter_ % 10 == 0) {
+        if (iter_ % 1 == 0) {
             MatrixXd loss_m = feed_dic[sequential.back().output.hash_code] - feed_dic[sequential.back().y_true.hash_code];
             cout << "Iteration: " << iter_ << ", Loss: " << loss_m.array().square().sum() / (batch_size * 10) << "\r" << flush;
-
         }
     }
 }
