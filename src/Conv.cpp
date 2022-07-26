@@ -63,16 +63,20 @@ MatrixXd img2col2D(const MatrixXd &input, const vector<MatrixXd> &kernels, const
 //    }
     return std::move(feature_matrix);
 }
-
-MatrixXd MaxPooling2D(const MatrixXd &input, const int filter_H, const int filter_W, const int stride, const int img_H, const int img_W){
+/*
+ * 输入：img2col卷积完成后的特征矩阵，每一列对应一个n*n的特征图，即一个卷积核形成的特征图，有多少卷积核特征矩阵就有多少列。
+ * 输出：同样有多少卷积核就有多少列，每一列是进行了maxpooling的特征图，大小为 pooling_H * pooling_W
+ */
+MatrixXd MaxPooling2D(const MatrixXd &input,
+                      const int filter_H, const int filter_W, const int stride,
+                      const int img_H, const int img_W,
+                      vector<vector<pair<int, int>>> &pooling_loc){
     cout << "Feature matrix:" << endl;
-    cout << input << endl;
-    cout << "---------------------------" << endl;
-
+    cout << input << endl << endl;
     const int pooling_H = (img_H - filter_H)/stride + 1;
     const int pooling_W = (img_W - filter_W)/stride + 1;
     MatrixXd pooling_res(pooling_H * pooling_W, input.cols());
-    vector<pair<int, int>> pooling_loc(pooling_H * pooling_W);
+
     for(int k = 0; k < input.cols(); ++k){
         MatrixXd feature = input.col(k);
         feature.resize(img_H, img_W);
@@ -82,20 +86,43 @@ MatrixXd MaxPooling2D(const MatrixXd &input, const int filter_H, const int filte
                 int pooling_row;
                 int pooling_col;
                 float max_val = feature.block(i, j, filter_H, filter_W).maxCoeff(&pooling_row, &pooling_col);
-                pooling_res(i/2 * filter_W + j/2, k) = max_val;
-                pooling_loc[i/2 * pooling_H + j/2] = pair<int, int>(pooling_row, pooling_col);
+                pooling_res(i/stride * filter_W + j/stride, k) = max_val;
+                pooling_loc[i/stride * filter_H + j/stride][k] = pair<int, int>((i + pooling_row) * img_H + (j + pooling_col), k);
             }
         }
     }
-    cout << "Pooling res matrix:" << endl;
-    cout << pooling_res << endl;
+    cout << "Pooling results:" << endl;
+    cout << pooling_res << endl << endl;
+    cout << "Pooling location:" << endl;
+    for(int k = 0; k < pooling_loc.size(); ++k){
+        for(int i = 0; i < pooling_loc[0].size(); ++i){
+            cout << "(" << pooling_loc[k][i].first << "," << pooling_loc[k][i].second << "), ";
+        }
+        cout << endl;
+    }
 
     return std::move(pooling_res);
 }
 
+void MaxPoolingPrime(const int img_H, const int img_W, const MatrixXd &input, const vector<vector<pair<int, int>>> &pooling_loc){
+    MatrixXd mat = MatrixXd::Zero(img_H * img_W, input.cols());
+    cout << "------------------------" << endl;
+    cout << "input diff:" << endl;
+    cout << input << endl;
+    int pooling_H = int(input.rows());
+    int pooling_W = int(input.cols());
+    for(int k = 0; k < input.cols(); ++k)
+        for(int i = 0; i < pooling_H; ++i)
+            for(int j = 0; j < pooling_W; ++j){
+                mat(pooling_loc[i][j].first, pooling_loc[i][j].second) = input(i, j);
+            }
+    cout << "MaxPooling back diff:" << endl;
+    cout << mat << endl;
+}
+
 int main(){
     MatrixXd input_img(4, 4);
-    input_img << 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4;
+    input_img << 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
 
     cout << "Original image:" << endl;
     cout << input_img << endl;
@@ -107,12 +134,20 @@ int main(){
         kernels.emplace_back(kernel);
     }
     MatrixXd feature_matrix = img2col2D(input_img, kernels, 3, 3, 1, 1);
-//    cout << "Feature map:" << endl;
-//    for(MatrixXd &feature : feature_maps){
-//        cout << "----------------------" << endl;
-//        cout << feature << endl;
-//    }
+    vector<vector<pair<int, int>>> pooling_loc;
+    vector<pair<int, int>> temp(feature_matrix.cols());
+    pooling_loc.resize(2 * 2, temp);
     cout << "Pooling image:" << endl;
-    MatrixXd pooling_img = MaxPooling2D(feature_matrix, 2, 2, 2, 4, 4);
-//    cout << pooling_img << endl;
+    MatrixXd pooling_img = MaxPooling2D(feature_matrix,
+                                        2, 2, 2,
+                                        4, 4,
+                                        pooling_loc);
+    cout << pooling_img << endl;
+    MatrixXd pooling_diff(2 * 2, 4);
+    pooling_diff << 0.1, 0.5, 0.04, -0.5,
+                    0.2, 0.6, 0.03, -0.2,
+                    0.3, 0.7, 0.02, -0.4,
+                    0.4, 0.8, 0.01, -0.7;
+    MaxPoolingPrime(4, 4, pooling_diff, pooling_loc);
+
 }

@@ -17,8 +17,11 @@ MatrixXd img2col2D(const MatrixXd &input, const vector<MatrixXd> &kernels,
                            const int &kernel_H, const int &kernel_W,
                            const int &paddle, const int &stride);
 
-MatrixXd MaxPooling2D(const MatrixXd &input, const int filter_H,
-                      const int filter_W, const int stride,
-                      const int img_H, const int img_W);
+MatrixXd MaxPooling2D(const MatrixXd &input,
+                      const int filter_H, const int filter_W, const int stride,
+                      const int img_H, const int img_W,
+                      vector<vector<pair<int, int>>> &pooling_loc);
+
+void MaxPoolingPrime(const int img_H, const int img_W, const MatrixXd &input, const vector<vector<pair<int, int>>> &pooling_loc);
 
 

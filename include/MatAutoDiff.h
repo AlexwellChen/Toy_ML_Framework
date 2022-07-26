@@ -28,6 +28,9 @@ public:
     int stride;
     int img_H;
     int img_W;
+    vector<vector<pair<int, int>>> pooling_loc;
+
+
 
     virtual Node operator*(Node &nodeB);
 
@@ -89,7 +92,37 @@ public:
 
     vector<Node> gradient(Node &node, Node &output_gradient) override;
 
+    ~ReluOp() = default;
+
 };
+
+class MaxPoolingPrimeOp : public Op {
+public:
+    MaxPoolingPrimeOp() = default;
+
+    Node getNewNode(Node &nodeA, const int img_H, const int img_W);
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override;
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override;
+
+    ~MaxPoolingPrimeOp() = default;
+};
+
+class MaxPoolingOp : public Op {
+public:
+    MaxPoolingOp() = default;
+
+    Node getNewNode(Node &nodeA, const int filter_H, const int filter_W, const int stride);
+
+    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override;
+
+    vector<Node> gradient(Node &node, Node &output_gradient) override;
+
+    ~MaxPoolingOp() = default;
+};
+
+
 
 class SoftmaxGradient : public Op {
 public:
@@ -167,18 +200,7 @@ public:
     ~MatAddOp() = default;
 };
 
-class MaxPoolingOp : public Op {
-public:
-    MaxPoolingOp() = default;
 
-    Node getNewNode(Node &nodeA, const int filter_H, const int filter_W, const int stride);
-
-    vector<MatrixXd> compute(Node &nodeA, vector<MatrixXd> &input_vals) override;
-
-    vector<Node> gradient(Node &node, Node &output_gradient) override;
-
-    ~MaxPoolingOp() = default;
-};
 
 Node Variable(string var_name);
 vector<Node> gradients(Node &output_node, vector<Node> &node_list);

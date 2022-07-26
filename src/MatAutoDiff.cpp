@@ -271,6 +271,46 @@ vector<Node> ReluOp::gradient(Node &node, Node &output_gradient) {
 
 ReluOp relu_op = ReluOp();
 
+Node MaxPoolingPrimeOp::getNewNode(Node &nodeA, const int img_H, const int img_W) {
+    Node newNode = Node();
+    newNode.op = this;
+    newNode.input.push_back(nodeA);
+    newNode.name = "MaxPoolingPrime(" + nodeA.name + ")";
+    newNode.filter_W = nodeA.filter_W;
+    newNode.filter_H = nodeA.filter_H;
+    newNode.stride = nodeA.stride;
+    // 获得原有特征图的大小
+    newNode.img_H = img_H;
+    newNode.img_W = img_W;
+    int hash = 0;
+    int i = 0;
+    for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
+        hash += newNode.name[i];
+    newNode.hash_code = hash;
+    newNode.isPlaceHolder = false;
+    return newNode;
+}
+
+vector<MatrixXd> MaxPoolingPrimeOp::compute(Node &nodeA, vector<MatrixXd> &input_vals){
+    MatrixXd mat = MatrixXd::Zero(nodeA.img_H * nodeA.img_W, input_vals[0].cols());
+    vector<MatrixXd> res;
+    int pooling_H = int(input_vals[0].rows());
+    int pooling_W = int(input_vals[0].cols());
+    for(int k = 0; k < pooling_W; ++k)
+        for(int i = 0; i < pooling_H; ++i)
+            for(int j = 0; j < pooling_W; ++j){
+                mat(nodeA.pooling_loc[i][j].first, nodeA.pooling_loc[i][j].second) = input_vals[0](i, j);
+            }
+    res.emplace_back(mat);
+    return std::move(res);
+}
+
+vector<Node> MaxPoolingPrimeOp::gradient(Node &node, Node &output_gradient){
+    return {}; // No need to implement.
+}
+
+MaxPoolingPrimeOp maxpooling_prime_op = MaxPoolingPrimeOp();
+
 Node MaxPoolingOp::getNewNode(Node &nodeA, const int filter_H, const int filter_W, const int stride) {
     Node newNode = Node();
     newNode.op = this;
@@ -279,6 +319,9 @@ Node MaxPoolingOp::getNewNode(Node &nodeA, const int filter_H, const int filter_
     newNode.filter_W = filter_W;
     newNode.filter_H = filter_H;
     newNode.stride = stride;
+    // 保存原有特征图的大小
+    newNode.img_H = nodeA.img_H;
+    newNode.img_W = nodeA.img_W;
     int hash = 0;
     int i = 0;
     for (hash = newNode.name.length(), i = 0; i < newNode.name.length(); i++)
@@ -290,14 +333,20 @@ Node MaxPoolingOp::getNewNode(Node &nodeA, const int filter_H, const int filter_
 
 vector<MatrixXd> MaxPoolingOp::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     vector<MatrixXd> res;
-    for(MatrixXd &matrix : input_vals){
-        res.emplace_back(MaxPooling2D(matrix, nodeA.filter_H, nodeA.filter_W, nodeA.stride, nodeA.img_H, nodeA.img_W));
-    }
+    vector<pair<int, int>> temp(input_vals[0].cols());
+    nodeA.pooling_loc.resize(nodeA.filter_H * nodeA.filter_W, temp);
+    res.emplace_back(MaxPooling2D(input_vals[0], nodeA.filter_H,
+                                  nodeA.filter_W, nodeA.stride,
+                                  nodeA.img_H, nodeA.img_W,
+                                  nodeA.pooling_loc));
     return std::move(res);
 }
 
 vector<Node> MaxPoolingOp::gradient(Node &node, Node &output_gradient) {
-
+    Node newNode = maxpooling_prime_op.getNewNode(output_gradient, node.img_H, node.img_W);
+    vector<Node> res;
+    res.push_back(newNode);
+    return res;
 }
 
 Node SoftmaxGradient::getNewNode(Node &nodeA, Node &nodeB) {
