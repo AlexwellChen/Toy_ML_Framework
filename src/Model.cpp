@@ -119,12 +119,25 @@ void Model::run(){
 
         // Weight update
         for (int i = 1; i < sequential.size() - 1; i++) {
-            feed_dic[sequential[i].input_node.hash_code] -= lr * feed_dic[sequential[i].grad_node_hash];
+//            feed_dic[sequential[i].input_node.hash_code] -= lr * feed_dic[sequential[i].grad_node_hash];
+            sequential[i].matrix_weight -= lr * feed_dic[sequential[i].grad_node_hash];
+            if(i == 2){
+                cout << "grad" <<endl << feed_dic[sequential[i].grad_node_hash] <<endl;
+                cout << "matrix_weight" <<endl << feed_dic[sequential[i].input_node.hash_code] <<endl;
+            }
         }
-
+//        break;
         // Loss
-        if (iter_ % 1 == 0) {
-            MatrixXd loss_m = feed_dic[sequential.back().output.hash_code] - feed_dic[sequential.back().y_true.hash_code];
+        if (iter_ % 2 == 0) {
+            break;
+            MatrixXd y_hat = feed_dic[sequential.back().output.hash_code]; // Predict
+            MatrixXd y = feed_dic[sequential.back().y_true.hash_code]; // Ground Truth
+            MatrixXd loss_m(y.rows(), y.cols());
+            for(int i = 0; i < y.rows(); ++i){
+                for(int j = 0; j < y.cols(); ++j){
+                    loss_m(i, j) = -1 * y(i, j) * log(y_hat(i, j));
+                }
+            }
             cout << "Iteration: " << iter_ << ", Loss: " << loss_m.array().square().sum() / (batch_size * 10) << "\r" << flush;
         }
     }

@@ -375,8 +375,17 @@ Node SoftmaxGradient::getNewNode(Node &nodeA, Node &nodeB) {
 vector<MatrixXd> SoftmaxGradient::compute(Node &nodeA, vector<MatrixXd> &input_vals) {
     MatrixXd y_hat = input_vals[0]; // Predict
     MatrixXd y = input_vals[1]; // Ground Truth
+    MatrixXd output(y.rows(), y.cols());
     vector<MatrixXd> res_mat;
-    res_mat.push_back(y_hat - y);
+//    cout << "y_hat: " << y_hat << endl;
+//    cout << "y_true: " << y << endl;
+    for(int i = 0; i < y.rows(); ++i){
+        for(int j = 0; j < y.cols(); ++j){
+            output(i, j) = -1 * y(i, j) * log(y_hat(i, j));
+        }
+    }
+//    cout << "output: " << output << endl;
+    res_mat.push_back(output);
     return res_mat;
 }
 

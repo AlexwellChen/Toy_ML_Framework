@@ -23,11 +23,8 @@ int main() {
     Model model = Model(32, 100);
 
     model.Input(784, "input layer");
-    model.Dense(512, "Hidden layer 1", "relu");
-    model.Dense(512, "Hidden layer 2", "relu");
-    model.Dense(512, "Hidden layer 3", "relu");
-    model.Dense(512, "Hidden layer 4", "relu");
-    model.Dense(10, "Hidden layer 5", "none");
+    model.Dense(64, "Hidden layer 1", "relu");
+    model.Dense(10, "Hidden layer 2", "none");
     model.Output(10, "Output layer");
 
     model.compile();
