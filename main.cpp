@@ -1,37 +1,39 @@
 #include <iostream>
-#include <map>
-#include "include/Model.h"
+#include "Model.h"
 #include <Eigen/Dense>
-#include <utility>
-#include <Eigen/Core>
-
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 using namespace Eigen;
 
 int main() {
-    Eigen::initParallel();
-    string training_data = "../train.txt";
-    vector<float> X;
-    vector<float> y;
+    srand(42);
 
-    cout << "------------------------------------" << endl;
-    cout << "Loading data..." << endl;
-    load_data(X, y, training_data);
-    cout << "Finish loading data..." << endl;
+    // MLP: 784 -> Dense(128,relu) -> Dense(64,relu) -> Output(10)
+    int BS = 64;
+    Model model(BS, 5000, 0.005f, 0.95f, 1000);
 
-    Model model = Model(32, 100);
+    model.use_adam = true;
+    model.adam_beta1 = 0.9f;
+    model.adam_beta2 = 0.999f;
+    model.adam_eps = 1e-8f;
+    model.adam_wd = 0.0001f;
 
-    model.Input(784, "input layer");
-    model.Dense(512, "Hidden layer 1", "relu");
-    model.Dense(512, "Hidden layer 2", "relu");
-    model.Dense(512, "Hidden layer 3", "relu");
-    model.Dense(512, "Hidden layer 4", "relu");
-    model.Dense(10, "Hidden layer 5", "none");
-    model.Output(10, "Output layer");
+    model.log_interval = 100;
+    model.csv_filename = "output/mnist_metrics.csv";
+
+    model.Input(784, "input");
+    model.Dense(128, "hidden1", "relu");
+    model.Dense(64, "hidden2", "relu");
+    model.Output(10, "output");
 
     model.compile();
-    model.loadData(X, y);
+    model.loadData("train.txt");
     model.run();
-}
 
+    model.save_weights("output/mnist_weights.bin");
+    model.save_graph("output/mnist_graph.txt");
+
+    return 0;
+}

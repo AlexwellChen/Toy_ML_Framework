@@ -1,100 +1,118 @@
 # Toy ML Framework
 
-This Framework comes from CSE599W Assignment1, which I'm aiming to build a Machine Learning System with Automatic differentiation. This framework will contain following modules: Automatic differentiation, User interface, CUDA Ops and etc.
+C++ 实现的轻量级机器学习框架，支持**自动微分**、**静态计算图**和 **Keras 风格的高层 API**，用于训练 MNIST 手写数字分类器。
 
-### Automatic Differentiation
+## 快速开始
 
-The AD (Automatic differentiation) is the core module of the whole system. With AD there is no need to take care of the differentiation manually, which will be done by the system. All we need to do is impliment the Ops' compute and gradient function.
+### 依赖
 
-*Computation graph*
+- Eigen（`brew install eigen`）
+- C++14
 
-The basis of automatic differentiation is the computation graph, which can be divided into Forward Mode and Reverse Mode according to the different graph traversal methods.
+### 构建 & 运行
 
-Forward Mode is to traverse the entire computation graph whenever we have an independent variable input in order to compute its differentiation, which generates a lot of unnecessary node visits.
+```bash
+# 训练模型（编译 + 训练 + 生成 loss 曲线）
+./scripts/run_train.sh
 
-Reverse Mode is to traverse in reverse topological order from the output node, so that through a reverse traversal, we record the gradient of the precursor node of each node, and sum up all the gradients coming from the back after reaching each node to get the total gradient size, and then we continue to calculate the gradient components of the precursor node according to this gradient, and finally get the gradient of the output y with respect to each input variable.
+# 运行所有单元测试（13 个测试，8 个测试套件）
+./scripts/run_tests.sh
 
-This framework uses Reverse Mode and generates a static computational graph.
-
-*Graph Node*
-
-Graph node is defined as follow.
-
-```C++
-class Node {
-public:
-    Node(){
-        this->const_attr = 0.0;
-    }
-    vector<Node> input;
-    Op *op;
-    float const_attr;
-    string name;
-    int hash_code;
-    bool isPlaceHolder;
-
-    virtual Node operator+(Node &nodeB);
-
-    virtual Node operator*(Node &nodeB);
-
-    ~Node() = default;
-};
+# 清理编译产物
+./scripts/clean.sh
 ```
 
-All nodes have its own operator, which indicates that what type of computation will be done in current node. The Operator is defined as follow.
+### 训练结果
 
-```C++
-class Op {
-public:
-    Op() = default;
+| 指标 | 值 |
+|------|------|
+| 测试准确率 | **97.5%** |
+| 优化器 | AdamW（lr=0.005, β1=0.9, β2=0.999） |
+| 网络结构 | Input(784) → Dense(128, ReLU) → Dense(64, ReLU) → Output(10) |
+| 迭代轮数 | 5000 |
 
-    virtual Node getNewNode();
-		// T could be vector or matrix
-    virtual vector<T> compute(Node &node, vector<T> &input_vals);
+产物输出在 `output/` 目录：
+- `mnist_weights.bin` — 可加载的模型权重
+- `mnist_graph.txt` — 计算图结构
+- `mnist_metrics.csv` — 训练指标（loss/准确率/AUC）
+- `mnist_loss_curve.png` — Loss 曲线可视化
 
-    virtual vector<Node> gradient(Node &node, Node &output_gradient);
+## 架构
 
-    ~Op() = default;
-};
+框架分为三层抽象：
+
+### 1. 计算图（MatAutoDiff.h/cpp, MatOp.h）
+
+核心自动微分引擎，基于**反向模式**构建静态计算图。
+
+- **Node** — 图节点，持有输入指针、Op、缓存结果（MatrixXd）和空间属性
+- **Op** — 算子抽象基类，定义 `compute()`、`gradient()`、`getNewNode()`
+- **gradients(output, inputs)** — 反向拓扑遍历输出节点的计算图，为每个输入构建梯度表达式
+- **Executor** — 合并前向和反向图后进行拓扑排序，根据 feed_dict 依次执行各节点
+
+支持的算子：Placeholder、MatMul、MatAdd、ReLU、Tanh、Softmax、Conv、MaxPool、Reshape、BatchNorm、Dropout 及其对应的梯度算子。
+
+### 2. Model API（Model.h/cpp）
+
+Keras 风格的顺序模型 API。
+
+```cpp
+Model model(/*batch_size*/ 64, /*iters*/ 5000, /*lr*/ 0.005f);
+model.use_adam = true;  // 启用 AdamW
+
+model.Input(784, "input");
+model.Dense(128, "hidden1", "relu");
+model.Dense(64, "hidden2", "relu");
+model.Output(10, "output");
+
+model.compile();
+model.loadData("train.txt");
+model.run();
+
+model.save_weights("output/mnist_weights.bin");
+model.save_graph("output/mnist_graph.txt");
 ```
 
-Each operator needs to impliment three function. We need getNewNode to generate a node which corresponds current operator, and use compute and gradient to represent the math computation.
+支持的层类型：Input、Dense、Conv2D、MaxPooling2D、Flatten、Dropout、BatchNorm、Output。
 
-*Constructing back-propagation graph of gradients*
+### 3. 卷积原语（Conv.h/cpp）
 
-The example is y = x1 * x2 + x3.
+- `img2col2D_multi()` — 多通道 im2col
+- `col2im()` — im2col 的逆操作，用于梯度反传
+- `MaxPooling2D()` / `MaxPoolingPrime()` — 支持 batch 的最大池化
 
-The construction of the gradient backpropagation graph is done through the gradients function, the implementation of which can be found in autodiff.cpp. The gradients function has two inputs: one is the output node, which is our y, and the other is the list of input nodes, which is our [x1, x2, x3]. Since we need to back-propagate, we traverse the nodes using a reverse topological sort, ensuring that when we visit a node, we have visited all the nodes after it (i.e. we have gotten all its gradient components).
+## 单元测试
 
-The first thing we can know is that the derivative of the output node y with respect to the expression x1*x2+x3 is 1. We store this value in the grad_map corresponding to y.
+`unittest/test_ops.cpp` 覆盖所有算子的前向和反向测试，使用有限差分数值梯度检查。全部 23 个测试通过。
 
-Then we topologically sort the computational map and reverse to get the node access order and then we can construct the back propagation map.
+```bash
+./unittest/test_ops
+```
 
-For each node we follow the following process.
+## 项目结构
 
-1. look up the table, get the gradient passed by all output nodes of the current node and sum up (each gradient component is a Node node, as mentioned above, the gradient specific value calculation still needs to rely on the compute function to complete, so the sum up here is to build the expression node of the gradient sum).
+```
+├── main.cpp              # 训练入口
+├── src/
+│   ├── MatAutoDiff.cpp   # 计算图、算子实现、梯度构建
+│   ├── Model.cpp          # 高层 Model/Layer API
+│   └── Conv.cpp           # 卷积原语
+├── include/
+│   ├── MatAutoDiff.h
+│   ├── MatOp.h
+│   ├── Model.h
+│   └── Conv.h
+├── unittest/
+│   └── test_ops.cpp       # 单元测试
+├── example.cpp            # 底层 API 使用示例
+├── Makefile.simple        # 构建脚本
+├── train.txt              # MNIST 数据集
+└── output/                # 训练产物
+```
 
-2. save the gradient sum of the current node.
+## 训练稳定性说明
 
-3. Use the gradient function of the current node operator to build the gradient component expression nodes of all input Nodes.
-
-4. Save the gradient component nodes of each input Node to node_to_output_grads_list and wait for the summation.
-
-After getting the gradient expression nodes for each node, we can pass the gradient expression nodes back in a certain order and wait to put them into the executor for execution.
-
-*The Executor*
-
-The constructor input to Executor is a list [y, x1_grad, x2_grad, x3_grad], where y contains the expressions we need to evaluate, followed by the gradient value of each variable with respect to y.
-
-Executor has a run function to execute the entire computational graph as well as the gradient back-propagation graph.
-
-We already have all the nodes when we construct the executor instance, we just need to sort them topologically to get the node traversal list. Since we have already constructed the gradient backpropagation graph, we are actually combining the two graphs into one for topological sorting.
-
-In the forward propagation, we calculate the value of each node, and then we enter the backpropagation graph and still use the compute function to calculate the value of the current node according to the corresponding rules, at this time we calculate the gradient value of the corresponding gradient expression node. Finally, we return the values of the nodes [y, x1_grad, x2_grad, x3_grad] that we need to the main function.
-
-### Todo List
-
-* Tensorflow/Keras like User Interface
-* CUDA Operators
-* Convolution Operators
-* Computation graph serialization and deserialization
+- He 初始化 + AdamW 优化器，推荐 lr 0.001–0.01
+- Softmax 使用稳定计算（减去最大值防溢出）
+- Early stopping：自动保存验证准确率最佳时刻的权重
+- Dropout 在推理时自动关闭（由 `g_dropout_training` 全局标志控制）

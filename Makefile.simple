@@ -1,0 +1,47 @@
+# Toy ML Framework Makefile
+CXX = g++
+CXXFLAGS = -std=c++14 -O3
+INCLUDES = -I include -I /opt/homebrew/Cellar/eigen/5.0.1/include/eigen3
+TARGET = toy_ml
+
+SRC = src/Node.cpp src/Constant.cpp src/MatMul.cpp src/MatAdd.cpp \
+      src/Relu.cpp src/Softmax.cpp src/Model.cpp
+SOURCES = main.cpp $(SRC)
+
+TESTS = unittest/test_matmul unittest/test_matadd unittest/test_relu \
+        unittest/test_softmax unittest/test_constant unittest/test_mlp
+
+.PHONY: all clean run test
+
+all: $(TARGET)
+
+$(TARGET): $(SOURCES)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SOURCES) -o $(TARGET)
+
+unittest/test_matmul: unittest/test_matmul.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+unittest/test_matadd: unittest/test_matadd.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+unittest/test_relu: unittest/test_relu.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+unittest/test_softmax: unittest/test_softmax.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+unittest/test_constant: unittest/test_constant.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+unittest/test_mlp: unittest/test_mlp.cpp $(SRC)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(SRC) -o $@
+
+test: $(TESTS)
+	@for t in $(TESTS); do echo "\n--- $$t ---"; ./$$t || exit 1; done
+	@echo "\n=== All tests passed ==="
+
+run: $(TARGET)
+	./$(TARGET)
+
+clean:
+	rm -f $(TARGET) $(TESTS)
